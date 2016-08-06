@@ -22,15 +22,10 @@ challenge = 3
 
 -- create Net
 myNet = nn.Sequential()
-myNet:add(nn.Linear(18,1024))
+myNet:add(nn.Linear(9,1024))
 myNet:add(nn.ReLU())
---myNet:add(nn.Dropout(0.2))
 myNet:add(nn.Linear(1024,1024))
 myNet:add(nn.ReLU())
---myNet:add(nn.Dropout(0.5))
---myNet:add(nn.Linear(128,128))
---myNet:add(nn.ReLU())
---myNet:add(nn.Dropout(0.2))
 myNet:add(nn.Linear(1024,9))
 
 myNetCuda = myNet:cuda()
@@ -42,10 +37,7 @@ myGame = ticTacToe()
 myAI = AI(myNetCuda, myGame)
 
 -- training parameters
-myAI.numLoops = 65536
-myAI.numMem   = 512
-myAI.numMoves = 128
-myAI.criterion = nn.MSECriterion():cuda()
+
 
 -- train for numLoops
 myAI:train()
