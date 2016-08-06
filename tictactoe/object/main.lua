@@ -20,9 +20,9 @@ hum = 2
 
 -- create Net
 myNet = nn.Sequential()
-myNet:add(nn.Linear(18,1024))
+myNet:add(nn.Linear(18,128))
 myNet:add(nn.ReLU())
-myNet:add(nn.Linear(1024,9))
+myNet:add(nn.Linear(128,9))
 myNetCuda = myNet:cuda()
 
 -- create game instance

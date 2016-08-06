@@ -29,10 +29,10 @@ function AI:__init(net, game)
 	self.numMem	  = 1024		
 	self.numMoves = 256
 	--self.trainer = nn.StochasticGradient
-	self.criterion = nn.MSECriterion
+	self.criterion = nn.MSECriterion()
 
 	-- learning constants
-	self.eps_initial 		= 0			-- eps-greedy value
+	self.eps_initial 		= 1			-- eps-greedy value
 	local eps_final 		= 0.1
 	self.gamma_initial 		= 0.01		-- future reward discount
 	local gamma_final 		= 0.5
@@ -92,7 +92,6 @@ function AI:train()
 	
     	torch.seed()				-- reset seed because manually set elsewhere
     	self.game:play(com,com,self)		-- remember experiences, com-com games
-		print('Game played.')
 
     	-- fill testSet with random values in dataset
 		exp = flip and torch.randperm(self.numMem) or torch.randperm(self.memIndex)
@@ -108,7 +107,7 @@ function AI:train()
 		self:trainSGD()
 
     	-- display performance occasionally
-		--if self.verbose and myLoop/5e2==torch.round(myLoop/5e2) then     -- can be configured to display every 500 iterat$
+		--if self.verbose and myLoop/5e2==torch.round(myLoop/5e2) then     -- can be configured to display every 500 iterat
     	if sys.toc()>10 then                              -- displays every 10 seconds
 
 			if self.verbose then
@@ -184,12 +183,13 @@ function AI:trainSGD()
         end
 
         --calculate Q using current parameters
-        local output = self:process(origState)
+		local target = self:process(origState)
+		Qprev = target[action]
 
         --set target to vector
-        local target = output:clone()
-        target[action] = (1-self.alpha)*output[action]+self.alpha*y
+		target[action] = (1-self.alpha)*Qprev+self.alpha*y
 
+		--enter into data table
         data[move] = {origState, target}
 
     end

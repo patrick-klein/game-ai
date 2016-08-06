@@ -115,8 +115,6 @@ function ticTacToe:play_CvC(AI)
 	    --nextTurn
         self.turn = self.turn + 1
 
-		print(self.turn)
-
     end
 end
 

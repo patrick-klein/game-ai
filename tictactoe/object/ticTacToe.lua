@@ -83,7 +83,7 @@ function ticTacToe:play_CvC()
 	-- CvC specific variables
     self.xState = torch.zeros(18)
     self.Q = torch.zeros(9)
-    self.normQ = nn.SoftMax()
+    self.normQ = nn.SoftMax():cuda()
 
     --loop until game ends
     while true do
@@ -143,7 +143,8 @@ function ticTacToe:comTurn(cTurn)
         repeat
             --determine next move
             if torch.uniform() > self.AI.eps then				--exploit
-                self.Q = normQ:forward(self.AI:process(locState)*1e2)
+				local temp = 1e2
+                self.Q = self.normQ:forward(self.AI:process(locState)*temp)
                 local spin = torch.uniform()
                 for chance = 1,9 do
                     if spin<self.Q[{{1,chance}}]:sum() then

@@ -28,10 +28,10 @@ function AI:__init(net, game)
 
 	-- training parameters
 	self.numLoops = 1024
-	self.numMem	  = 1024		
-	self.numMoves = 256
+	self.numMem	  = 128		
+	self.numMoves = 16
 	--self.trainer = nn.StochasticGradient
-	self.criterion = nn.MSECriterion:cuda()
+	self.criterion = nn.MSECriterion():cuda()
 
 	-- learning constants
 	self.eps_initial 		= 1			-- eps-greedy value
@@ -107,10 +107,11 @@ function AI:train()
 
 		-- call trainSGD function to update net
 		self:trainSGD()
+		print('Done training.')
 
     	-- display performance occasionally
 		--if self.verbose and myLoop/5e2==torch.round(myLoop/5e2) then     -- can be configured to display every 500 iterat$
-    	if sys.toc()>10 then                              -- displays every 10 seconds
+    	if sys.toc()>1 then                              -- displays every 10 seconds
 
 			if self.verbose then
 
@@ -198,9 +199,15 @@ function AI:trainSGD()
 	-- call trainer and train data
     local trainer = nn.StochasticGradient(self.net, self.criterion)
     trainer.learningRate = self.learnRate
+	trainer.maxIterations = 2
+	trainer.verbose = false
+	print('debug 1')
     trainer:train(data)
+	print('debug 2')
 
 end
+
+function AI:optim() end
 
 function AI:process(input)
 	return self.net:forward(input)
