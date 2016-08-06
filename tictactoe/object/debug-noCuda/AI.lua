@@ -1,8 +1,6 @@
 -- require libraries
 require 'torch'
 require 'nn'
-require 'cutorch'
-require 'cunn'
 --require 'cudnn'
 require 'io'
 
@@ -17,7 +15,7 @@ function AI:__init(net, game)
 	-- required to init
 	self.net = net
 	self.game = game
-	game.AI = self
+	--self.game.AI = self
 
 	-- option to gpu optimize with cuda
 	--self.cuda = true
@@ -31,10 +29,10 @@ function AI:__init(net, game)
 	self.numMem	  = 1024		
 	self.numMoves = 256
 	--self.trainer = nn.StochasticGradient
-	self.criterion = nn.MSECriterion:cuda()
+	self.criterion = nn.MSECriterion
 
 	-- learning constants
-	self.eps_initial 		= 1			-- eps-greedy value
+	self.eps_initial 		= 0			-- eps-greedy value
 	local eps_final 		= 0.1
 	self.gamma_initial 		= 0.01		-- future reward discount
 	local gamma_final 		= 0.5
@@ -93,7 +91,8 @@ function AI:train()
     	end
 	
     	torch.seed()				-- reset seed because manually set elsewhere
-    	self.game:play(com,com)		-- remember experiences, com-com games
+    	self.game:play(com,com,self)		-- remember experiences, com-com games
+		print('Game played.')
 
     	-- fill testSet with random values in dataset
 		exp = flip and torch.randperm(self.numMem) or torch.randperm(self.memIndex)
@@ -177,21 +176,21 @@ function AI:trainSGD()
 
         --set desired Q value for action
 		local y
-        if terminal then                            				--terminal gets reward only
+        if terminal then                        		--terminal gets reward only
             y = reward
-        else														--non-terminal adds future (discounted) reward
-            local Qnext = self:process(nextState:cuda()):float()	--calculate expected return using current parameters
+        else											--non-terminal adds future (discounted) reward
+            local Qnext = self:process(nextState)		--calculate expected return using current parameters
             y = reward + self.gamma*Qnext:max()
         end
 
         --calculate Q using current parameters
-        local output = self:process(origState:cuda()):float()
+        local output = self:process(origState)
 
         --set target to vector
         local target = output:clone()
         target[action] = (1-self.alpha)*output[action]+self.alpha*y
 
-        data[move] = {origState:cuda(), target:cuda()}
+        data[move] = {origState, target}
 
     end
 

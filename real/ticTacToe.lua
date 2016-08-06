@@ -72,7 +72,7 @@ end
 
 
 
-function ticTacToe:play_CvC()
+function ticTacToe:play_CvC(net, dataSet, dataIndex)
 
     --initial board states
     self.p1State = torch.zeros(18):cuda()
@@ -143,7 +143,7 @@ function ticTacToe:comTurn(cTurn)
         repeat
             --determine next move
             if torch.uniform() > self.AI.eps then				--exploit
-                self.Q = normQ:forward(self.AI:process(locState)*1e2)
+                self.Q = normQ:forward(AI:process(locState)*1e2)
                 local spin = torch.uniform()
                 for chance = 1,9 do
                     if spin<self.Q[{{1,chance}}]:sum() then

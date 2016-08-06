@@ -75,7 +75,7 @@ for myLoop = 1,numLoops,1 do
 
     --display performance occasionally
     --if myLoop/5e2==torch.round(myLoop/5e2) then     --currently configured to display every 500 iterations
-    if sys.toc()>10 then                              --displays every 10 seconds
+    if sys.toc()>11 then                              --displays every 10 seconds
 
         --net:evaluate()
         --local dWin = 0 local dLose = 0
