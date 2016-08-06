@@ -14,3 +14,4 @@ use lua coroutines  to multi-thread
 profile code
 gnuplot results
 drawboard and human playing
+"reset" method for game (clears variables)

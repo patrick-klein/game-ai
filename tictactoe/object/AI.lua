@@ -23,7 +23,7 @@ function AI:__init(net, game)
 	--self.cuda = true
 
 	-- display progress
-	self.verbose = true
+	self.verbose = false
 	self.eval = true
 
 	-- training parameters
@@ -33,14 +33,14 @@ function AI:__init(net, game)
 	self.criterion = nn.MSECriterion():cuda()
 
 	-- learning constants
-	self.eps_initial 		= 1			-- eps-greedy value
+	self.eps_initial 		= 0.9		-- eps-greedy value
 	local eps_final 		= 0.1
-	self.gamma_initial 		= 0.01		-- future reward discount
-	local gamma_final 		= 0.5
+	self.gamma_initial 		= 0.1		-- future reward discount
+	local gamma_final 		= 0.01
 	self.learnRate_initial 	= 0.01		-- learning rate for gradient descent
 	local learnRate_final 	= 0.001
-	self.alpha_initial		= 0.01		-- momentum for q-learning
-	local alpha_final 		= 0.001
+	self.alpha_initial		= 0.1		-- momentum for q-learning
+	local alpha_final 		= 0.01
 
 	self.eps_delta = eps_final-self.eps_initial
 	self.gamma_delta = gamma_final-self.gamma_initial
@@ -93,7 +93,8 @@ function AI:train()
     		self.replayIndex = 0
     	end
 	
-    	self.game:play(com,com)		-- remember experiences, com-com games
+		-- remember experiences, com-com games
+    	self.game:play(com,com)
 
     	-- fill testSet with random values in dataset
 		exp = flip and torch.randperm(self.numMem) or torch.randperm(self.memIndex)
@@ -110,21 +111,27 @@ function AI:train()
 
     	-- display performance occasionally
 		--if self.verbose and myLoop/5e2==torch.round(myLoop/5e2) then     -- can be configured to display every 500 iterat$
-    	if sys.toc()>5 then                              -- displays every 10 seconds
+    	--if sys.toc()>10 or loopVar==1 then                              -- displays every 10 seconds
+		if true then
 
         	-- backup twice (in event that save is corrupted from interrupt)
-        	torch.save('myAI.dat', self)
-        	torch.save('myAI.dat_bak', self)
+			sys.tic()
+        	torch.save('myNet.dat', self.net)
+        	torch.save('myNet.dat_bak', self.net)
+			print(sys.toc())
 
 			if self.verbose then
-
 				if self.eval then
 					-- evaluate performance
         			self.net:evaluate()
 					self.eps = 0
         			rWin = 0 rLose = 0
-        			for myEval=1,1e2 do                         --test 100 sample games (deterministic across samp$
-        			    result = self.game:play(com,challenge)
+        			for myEval=1,1e2 do								--test 100 randomo sample games
+						if myEval<50 then							--half are x
+	        			    result = self.game:play(com,challenge)
+						else										--other half are o
+	        			    result = self.game:play(challenge,com)
+						end
             			if result==win then rWin = rWin+1			--track wins (positive)
         	    		elseif result==lose then rLose = rLose-1	--and losses (negative)
     	        		end
@@ -136,12 +143,12 @@ function AI:train()
 				-- calculate speed
 
         		io.write(loopVar) io.write('\t')
-	        	io.write(sys.toc()/(loopVar-prevLoopVar)) io.write('\n')
+	        	--io.write(sys.toc()/(loopVar-prevLoopVar)) io.write('\n')
 
 				prevLoopVar = loopVar
 
 			end
-			sys.tic()
+			--sys.tic()
 
 		end
 	end

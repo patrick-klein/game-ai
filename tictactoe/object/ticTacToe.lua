@@ -53,10 +53,15 @@ function ticTacToe:play(p1,p2)
     self.p1StateNew = torch.zeros(18)
     self.p2StateNew = torch.zeros(18)
 
-    -- CvC specific variables
     self.xState = torch.zeros(18)
     self.Q = torch.zeros(9)
     self.normQ = nn.SoftMax():cuda()
+
+	self.xWin = false
+	self.oWin = false
+	self.tie = false
+
+	if p1==hum then self:drawBoard() end
 
 	self.turn = 1
 
@@ -70,11 +75,12 @@ function ticTacToe:play(p1,p2)
 		end
 
        	self:evaluateBoard()
+		if p1==hum or p2==hum then self:drawBoard() end
 
-		--commit xTurn to memory
-		--(always? even with challenge or player? force AI, even for pvp?)
-       	self:selfEval(xTurn)
-       	self:oppEval(oTurn)
+		if not (p1==challenge or p2==challenge) then
+       		self:selfEval(xTurn)
+       		self:oppEval(oTurn)
+		end
 
         --finish game if terminal
         if self.xWin or self.oWin or self.tie then break
@@ -86,9 +92,12 @@ function ticTacToe:play(p1,p2)
 		end
 
         self:evaluateBoard()
+		if p1==hum or p2==hum then self:drawBoard() end
 
-        self:selfEval(oTurn)
-        self:oppEval(xTurn)
+		if not (p1==challenge or p2==challenge) then
+        	self:selfEval(oTurn)
+        	self:oppEval(xTurn)
+		end
 
         --finish game if terminal
         if self.xWin or self.oWin or self.tie then break
@@ -97,7 +106,7 @@ function ticTacToe:play(p1,p2)
         --nextTurn
         self.turn = self.turn + 1
 
-    end
+	end
 
 	if p1==challenge then
 		if self.xWin then return lose
@@ -135,11 +144,12 @@ function ticTacToe:comTurn(cTurn)
 	end
 
 	local temp = 1
+	local eps = self.AI.eps or 0
 
     repeat
         repeat
             --determine next move
-            if torch.uniform() > self.AI.eps then				--exploit
+            if torch.uniform() > eps then				--exploit
                 self.Q = self.normQ:forward(self.AI:process(locState)*temp)
                 local spin = torch.uniform()
                 for chance = 1,9 do
@@ -201,7 +211,18 @@ function ticTacToe:randTurn(rTurn)
 end
 
 function ticTacToe:playerTurn(pTurn)
-
+	
+	repeat
+		local action = io.read();
+		if self.xState[action]==0 and self.xState[9+action]==0 then
+			if pTurn == xTurn then
+				self.xState[action] = 1
+			elseif pTurn == oTurn  then
+				self.xState[9+action] = 1
+			end
+			break   --break inner loop
+		end
+	until false
 end
 
 
@@ -289,13 +310,13 @@ function ticTacToe:evaluateBoard()
     --x victory
     gameBoard = self.xState[{{1,9}}]
     for loop = 1,8 do
-        self.xWin = evalVicType(loop, gameBoard)
+        self.xWin = self.xWin or evalVicType(loop, gameBoard)
     end
 
     --o victory
     gameBoard = self.xState[{{10,18}}]
     for loop = 1,8 do
-        self.oWin = evalVicType(loop, gameBoard)
+        self.oWin = self.oWin or evalVicType(loop, gameBoard)
     end
 
     --tie game
@@ -310,6 +331,68 @@ function evalVicType(i, gameBoard)
     for j = 1,3 do
         t = t*gameBoard[victory[i][j]]
     end
-    return t ~= 0
+    return t~=0
 end
 
+function ticTacToe:drawBoard()
+
+	xBoard = self.xState[{{1,9}}]
+	oBoard = self.xState[{{10,18}}]
+
+    io.write("\t")
+
+    if xBoard[1] == 1 then io.write('x')
+    elseif oBoard[1] == 1 then io.write('o')
+    else io.write('.') end
+
+    io.write("\t|\t")
+
+    if xBoard[2] == 1 then io.write('x')
+    elseif oBoard[2] == 1 then io.write('o')
+    else io.write('.') end
+
+    io.write("\t|\t")
+
+    if xBoard[3] == 1 then io.write('x')
+    elseif oBoard[3] == 1 then io.write('o')
+    else io.write('.') end
+
+    io.write("\n\t")
+
+    if xBoard[4] == 1 then io.write('x')
+    elseif oBoard[4] == 1 then io.write('o')
+    else io.write('.') end
+
+    io.write("\t|\t")
+
+    if xBoard[5] == 1 then io.write('x')
+    elseif oBoard[5] == 1 then io.write('o')
+    else io.write('.') end
+
+    io.write("\t|\t")
+
+    if xBoard[6] == 1 then io.write('x')
+    elseif oBoard[6] == 1 then io.write('o')
+    else io.write('.') end
+
+    io.write("\n\t")
+
+    if xBoard[7] == 1 then io.write('x')
+    elseif oBoard[7] == 1 then io.write('o')
+    else io.write('.') end
+
+    io.write("\t|\t")
+
+    if xBoard[8] == 1 then io.write('x')
+    elseif oBoard[8] == 1 then io.write('o')
+    else io.write('.') end
+
+    io.write("\t|\t")
+
+    if xBoard[9] == 1 then io.write('x')
+    elseif oBoard[9] == 1 then io.write('o')
+    else io.write('.') end
+
+	io.write('\n\n\n')
+
+end
