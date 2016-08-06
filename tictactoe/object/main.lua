@@ -15,14 +15,19 @@ require 'ticTacToe'
 win  =  1
 lose = -1
 draw =  0
+
 com = 1
 hum = 2
+challenge = 3
 
 -- create Net
 myNet = nn.Sequential()
-myNet:add(nn.Linear(18,128))
+myNet:add(nn.Linear(18,2048))
 myNet:add(nn.ReLU())
-myNet:add(nn.Linear(128,9))
+myNet:add(nn.Linear(2048,1024))
+myNet:add(nn.ReLU())
+myNet:add(nn.Linear(1024,9))
+
 myNetCuda = myNet:cuda()
 
 -- create game instance

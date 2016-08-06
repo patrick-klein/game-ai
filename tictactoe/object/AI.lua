@@ -24,13 +24,12 @@ function AI:__init(net, game)
 
 	-- display progress
 	self.verbose = true
-	self.eval = false
+	self.eval = true
 
 	-- training parameters
-	self.numLoops = 1024
-	self.numMem	  = 128		
+	self.numLoops = 512
+	self.numMem	  = 32
 	self.numMoves = 16
-	--self.trainer = nn.StochasticGradient
 	self.criterion = nn.MSECriterion():cuda()
 
 	-- learning constants
@@ -72,10 +71,12 @@ function AI:train()
  	-- declare locals
 	local flip = false
 	local exp
-	local dWin local dLose
 	local rWin local rLose
 	local myEval
 	local result
+	local prevLoopVar = 0
+
+	torch.seed()
 
 	sys.tic()
 
@@ -92,7 +93,6 @@ function AI:train()
     		self.replayIndex = 0
     	end
 	
-    	torch.seed()				-- reset seed because manually set elsewhere
     	self.game:play(com,com)		-- remember experiences, com-com games
 
     	-- fill testSet with random values in dataset
@@ -107,52 +107,41 @@ function AI:train()
 
 		-- call trainSGD function to update net
 		self:trainSGD()
-		print('Done training.')
 
     	-- display performance occasionally
 		--if self.verbose and myLoop/5e2==torch.round(myLoop/5e2) then     -- can be configured to display every 500 iterat$
-    	if sys.toc()>1 then                              -- displays every 10 seconds
+    	if sys.toc()>5 then                              -- displays every 10 seconds
+
+        	-- backup twice (in event that save is corrupted from interrupt)
+        	torch.save('myAI.dat', self)
+        	torch.save('myAI.dat_bak', self)
 
 			if self.verbose then
 
 				if self.eval then
 					-- evaluate performance
         			self.net:evaluate()
-        			dWin = 0 dLose = 0
+					self.eps = 0
         			rWin = 0 rLose = 0
         			for myEval=1,1e2 do                         --test 100 sample games (deterministic across samp$
-	        	    	-- deterministic trial
-    	    	    	torch.manualSeed(myEval)
-        		    	result = game:challenge(self)
-            			if result==win then dWin = dWin+1			--track wins (positive)
-            			elseif result==lose then dLose = dLose-1	--and losses (negative)
-        	    		end
-		
-	    	    	    -- random trial
-            			torch.seed()
-        			    result = game:challenge(self)
+        			    result = self.game:play(com,challenge)
             			if result==win then rWin = rWin+1			--track wins (positive)
         	    		elseif result==lose then rLose = rLose-1	--and losses (negative)
     	        		end
 		        	end
+   			    	io.write(rWin) io.write('\t') io.write(rLose) io.write('\t')
+					self.net:training()
 				end
 
 				-- calculate speed
 
-        		io.write(myLoop) io.write('\t')
-	        	io.write(sys.toc()) io.write('\n')
+        		io.write(loopVar) io.write('\t')
+	        	io.write(sys.toc()/(loopVar-prevLoopVar)) io.write('\n')
 
-				if self.eval then
-	        		io.write(dWin) io.write('\t') io.write(dLose) io.write('\t')
-    		    	io.write(rWin) io.write('\t') io.write(rLose) io.write('\t')
-		        	self.net:training()
-				end
+				prevLoopVar = loopVar
+
 			end
 			sys.tic()
-
-        	-- backup twice (in event that save is corrupted from interrupt)
-        	torch.save('AI.dat', self)
-        	torch.save('AI.dat_bak', self)
 
 		end
 	end
@@ -190,9 +179,12 @@ function AI:trainSGD()
 
         --set target to vector
         local target = output:clone()
+
+
         target[action] = (1-self.alpha)*output[action]+self.alpha*y
 
         data[move] = {origState:cuda(), target:cuda()}
+
 
     end
 
@@ -201,9 +193,7 @@ function AI:trainSGD()
     trainer.learningRate = self.learnRate
 	trainer.maxIterations = 2
 	trainer.verbose = false
-	print('debug 1')
     trainer:train(data)
-	print('debug 2')
 
 end
 
