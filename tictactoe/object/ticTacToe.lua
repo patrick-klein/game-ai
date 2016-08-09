@@ -176,7 +176,7 @@ function ticTacToe:comTurn(cTurn)
 	--local temp = (self.isChallenge or self.isHum) and 100 or 1
 	--local eps = (self.isChallenge or self.isHum) and 0 or self.AI.eps
 
-	local temp = 10
+	local temp = 1
 	local eps = self.AI.eps
 
 	--double repeat loops replicate continue/break logic
@@ -395,59 +395,34 @@ function ticTacToe:drawBoard()
 	xBoard = self.state:eq(1)
 	oBoard = self.state:eq(-1)
 
-    io.write("\n\t")
+	local function drawSquare(sqr)
 
-    if xBoard[1] == 1 then io.write('x')
-    elseif oBoard[1] == 1 then io.write('o')
-    else io.write('.') end
+	    if xBoard[sqr] == 1 then io.write('x')
+	    elseif oBoard[sqr] == 1 then io.write('o')
+	    else io.write('.') end
 
-    io.write("\t|\t")
+	end
 
-    if xBoard[2] == 1 then io.write('x')
-    elseif oBoard[2] == 1 then io.write('o')
-    else io.write('.') end
+	io.write('\n\t')
+	drawSquare(1)
+	io.write('\t|\t')
+	drawSquare(2)
+	io.write('\t|\t')
+	drawSquare(3)
 
-    io.write("\t|\t")
+	io.write('\n\t')
+	drawSquare(4)
+	io.write('\t|\t')
+	drawSquare(5)
+	io.write('\t|\t')
+	drawSquare(6)
 
-    if xBoard[3] == 1 then io.write('x')
-    elseif oBoard[3] == 1 then io.write('o')
-    else io.write('.') end
-
-    io.write("\n\t")
-
-    if xBoard[4] == 1 then io.write('x')
-    elseif oBoard[4] == 1 then io.write('o')
-    else io.write('.') end
-
-    io.write("\t|\t")
-
-    if xBoard[5] == 1 then io.write('x')
-    elseif oBoard[5] == 1 then io.write('o')
-    else io.write('.') end
-
-    io.write("\t|\t")
-
-    if xBoard[6] == 1 then io.write('x')
-    elseif oBoard[6] == 1 then io.write('o')
-    else io.write('.') end
-
-    io.write("\n\t")
-
-    if xBoard[7] == 1 then io.write('x')
-    elseif oBoard[7] == 1 then io.write('o')
-    else io.write('.') end
-
-    io.write("\t|\t")
-
-    if xBoard[8] == 1 then io.write('x')
-    elseif oBoard[8] == 1 then io.write('o')
-    else io.write('.') end
-
-    io.write("\t|\t")
-
-    if xBoard[9] == 1 then io.write('x')
-    elseif oBoard[9] == 1 then io.write('o')
-    else io.write('.') end
+	io.write('\n\t')
+	drawSquare(7)
+	io.write('\t|\t')
+	drawSquare(8)
+	io.write('\t|\t')
+	drawSquare(9)
 
 	io.write('\n\n')
 
