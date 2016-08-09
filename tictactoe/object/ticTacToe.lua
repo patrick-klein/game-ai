@@ -1,3 +1,4 @@
+
 -- require libraries
 require 'torch'
 require 'nn'
@@ -14,7 +15,7 @@ local ticTacToe = torch.class('ticTacToe')
 
 -- local constants
 xTurn = 1
-yTurn = 2
+oTurn = 2
 
 -- victory types
 victory = torch.Tensor(8,3);
@@ -30,20 +31,18 @@ victory[8] = torch.Tensor({3, 5, 7})
 
 -- initialization function
 function ticTacToe:__init()
-	
+
     -- set scores
-    self.winScore = 1
-    self.loseScore = -1
-    self.invalidScore = -1
+    self.winScore = 10
+    self.loseScore = -10
+    self.invalidScore = -10
     self.tieScore = 0
     self.noScore = 0
 
-	self.xWin = false
-	self.oWin = false
-	self.tie  = false
-
 	self.numInputs = 9
 	self.numOutputs = 9
+
+	self.AI = nil
 
 end
 
@@ -60,11 +59,14 @@ function ticTacToe:play(p1,p2)
 
 	assert(self.isHum or self.isCom,'Computer or human player required.')
 
+	if self.isCom then assert(self.AI,'AI needed to play game.') end
+
 	--initial board states (1 is X, -1 is O)
-	--don't need to keep on GPU, only move when processed
 	self.state = torch.zeros(9)
-	self.prevState = torch.zeros(9)
-	self.action = 0
+	self.prevStateX = torch.zeros(9)
+	self.prevStateO = torch.zeros(9)
+	self.actionX = 0
+	self.actionO = 0
 	
 	--AI input is relative to player (1 is player, -1 is opponent)
 
@@ -119,6 +121,13 @@ function ticTacToe:play(p1,p2)
 
 	end
 
+	if self.isHum then
+		if self.xWin then print('X Wins!')
+		elseif self.oWin then print('O Wins!')
+		elseif self.tie then print('Draw!')
+		end
+	end
+
 	if p1==challenge then
 		if self.xWin then return lose
 		elseif self.oWin then return win
@@ -130,9 +139,10 @@ function ticTacToe:play(p1,p2)
 		elseif self.tie then return draw
 		end
 	end
-
 end
 
+
+--public method for running trials on AI
 function ticTacToe:test()
 
 	if torch.uniform()>0.5 then
@@ -140,8 +150,8 @@ function ticTacToe:test()
 	else
 		return self:play(challenge,com)
 	end
-
 end
+
 
 function ticTacToe:comTurn(cTurn)
 
@@ -149,8 +159,8 @@ function ticTacToe:comTurn(cTurn)
 	local pState = cTurn==xTurn and self.state:clone() or -self.state
 	local pAction
 
-    local Q = torch.zeros(9)
-    local normQ = nn.SoftMax()
+    local Q = torch.zeros(9):cuda()
+    local normQ = nn.SoftMax():cuda()
 	local spin
 
 	local randMoves
@@ -158,14 +168,16 @@ function ticTacToe:comTurn(cTurn)
 
     local done = false
 	local first = true
-	local exploit = false
+
+	--local exploit = false
+	local exploit = (self.isChallenge or self.isHum)
 	local explore = false
 
-	--local temp = (self.isHum or self.isChallenge) and 10 or 1
-	--local eps = not (self.isHum or self.isChallenge) and self.AI.eps or 0.
+	--local temp = (self.isChallenge or self.isHum) and 100 or 1
+	--local eps = (self.isChallenge or self.isHum) and 0 or self.AI.eps
 
-	local temp = self.isChallenge and 10 or 1
-	local eps = not self.isChallenge and self.AI.eps or 0.
+	local temp = 10
+	local eps = self.AI.eps
 
 	--double repeat loops replicate continue/break logic
     repeat
@@ -173,7 +185,7 @@ function ticTacToe:comTurn(cTurn)
             --determine next move
             if (torch.uniform()>eps or exploit) and not explore then	--exploit
 				if first then		--only process state once
-	                Q = normQ:cuda():forward(self.AI:process(pState:cuda())*temp)
+	                Q = normQ:forward(self.AI:process(pState:cuda())*temp)
 					exploit = true
 					first = false
 				else				--subsequent tries ignore invalid move, renormalize
@@ -209,9 +221,15 @@ function ticTacToe:comTurn(cTurn)
 			if self.isHum and exploit then print(Q[pAction]) end
 
 			--update boards
-			self.prevState = self.state:clone()
-			self.state[pAction] = cTurn==xTurn and 1 or -1
-			self.action = pAction
+			if cTurn==xTurn then
+				self.prevStateX = self.state:clone()
+				self.actionX = pAction
+				self.state[pAction] = 1
+			elseif cTurn==oTurn then
+				self.prevStateO = self.state:clone()
+				self.actionO = pAction
+				self.state[pAction] = -1
+			end
 
             done = true		--break
 		until true
@@ -219,37 +237,54 @@ function ticTacToe:comTurn(cTurn)
 
 end
 
+
 function ticTacToe:randTurn(rTurn)
 
 	local randMoves = torch.randperm(9)
 	local pAction
 
-	for move=1,9 do
-		--repeat until valid move
+	for move=1,9 do					--repeat until valid move
 		pAction = randMoves[move]
 		if self.state[pAction]==0 then
-			self.prevState = self.state:clone()				-- probably not necessary, memories not saved
-			self.state[pAction] = rTurn==xTurn and 1 or -1
-			self.action = pAction
+			--update boards
+			if rTurn==xTurn then
+				self.prevStateX = self.state:clone()
+				self.actionX = pAction
+				self.state[pAction] = 1
+			elseif rTurn==oTurn then
+				self.prevStateO = self.state:clone()
+				self.actionO = pAction
+				self.state[pAction] = -1
+			end
 			break
 		end
 	end
 
 end
 
+
 function ticTacToe:playerTurn(pTurn)
 	
 	local pAction
 
-	repeat	--until valid move is input
-		pAction = io.read();
+	repeat							--until valid move is input
+		pAction = tonumber(io.read());
+		if pAction then
 		if pAction>=1 and pAction<=9 then
-			if self.state[pAction]==0 then
-				self.prevState = self.state:clone()
-				self.state[pAction] = pTurn==xTurn and 1 or -1
-				self.action = pAction
-				break
+		if self.state[pAction]==0 then
+			--update boards
+			if pTurn==xTurn then
+				self.prevStateX = self.state:clone()
+				self.actionX = pAction
+				self.state[pAction] = 1
+			elseif pTurn==oTurn then
+				self.prevStateO = self.state:clone()
+				self.actionO = pAction
+				self.state[pAction] = -1
 			end
+			break
+		end
+		end
 		end
 	until false
 
@@ -260,11 +295,21 @@ function ticTacToe:selfEval(player)
 
 	assert(player==xTurn or player==oTurn, 'Unrecognized player passed to ticTacToe:selfEval')
 
-	local pStatePrev = player==xTurn and self.prevState:clone() or -self.prevState
-	local pState = player==xTurn and self.state:clone() or -self.state
-	local pAction = self.action
+	local pStatePrev
+	local pState
+	local pAction
 
-    if (xTurn and self.xWin) or (oTurn and self.oWin) then       --win
+	if player==xTurn then
+		pStatePrev = self.prevStateX:clone()
+		pState = self.state:clone()
+		pAction = self.actionX
+	elseif player==oTurn then
+		pStatePrev = -self.prevStateO
+		pState = -self.state
+		pAction = self.actionO
+	end
+
+    if (player==xTurn and self.xWin) or (player==oTurn and self.oWin) then       --win
         self.AI.memIndex = self.AI.memIndex + 1
         self.AI.memory[self.AI.memIndex] = {pStatePrev, pState, pAction, self.winScore, true}
 
@@ -275,20 +320,30 @@ function ticTacToe:selfEval(player)
 
 end
 
+
 function ticTacToe:oppEval(player)
 
 	--debug
 	assert(player==xTurn or player==oTurn, 'Unrecognized player passed to ticTacToe:oppEval')
 
-    if xTurn or (self.turn>1 and oTurn) then
+    if player==xTurn or (self.turn>1 and player==oTurn) then
 
-		--set local relative states
-		local pStatePrev = player==xTurn and self.prevState:clone() or -self.prevState
-		local pState = player==xTurn and self.state:clone() or -self.state
-		local pAction = self.action
+		local pStatePrev
+		local pState
+		local pAction
+
+		if player==xTurn then
+			pStatePrev = self.prevStateX:clone()
+			pState = self.state:clone()
+			pAction = self.actionX
+		elseif player==oTurn then
+			pStatePrev = -self.prevStateO
+			pState = -self.state
+			pAction = self.actionO
+		end
 
 		--save lose,tie,uneventful memory
-        if (xTurn and self.oWin) or (oTurn and self.xWin) then	--lose
+        if (player==xTurn and self.oWin) or (player==oTurn and self.xWin) then	--lose
             self.AI.memIndex = self.AI.memIndex + 1
             self.AI.memory[self.AI.memIndex] = {pStatePrev, pState, pAction, self.loseScore, true}
 
@@ -337,10 +392,10 @@ end
 
 function ticTacToe:drawBoard()
 
-	xBoard = self.state:clone()
-	oBoard = -self.state
+	xBoard = self.state:eq(1)
+	oBoard = self.state:eq(-1)
 
-    io.write("\t")
+    io.write("\n\t")
 
     if xBoard[1] == 1 then io.write('x')
     elseif oBoard[1] == 1 then io.write('o')
@@ -394,6 +449,6 @@ function ticTacToe:drawBoard()
     elseif oBoard[9] == 1 then io.write('o')
     else io.write('.') end
 
-	io.write('\n\n\n')
+	io.write('\n\n')
 
 end

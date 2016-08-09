@@ -15,6 +15,8 @@ remove replay memories that have already been trained (none left?)
 ticTacToe should accept strings so it can be used outside main
 hyperparameter optimization
 test/validate using reward instead of overall score
+implement cudnn
+"forget" less important memories more often
 
 FUTURE
 

@@ -25,13 +25,18 @@ if false then
 else
 	-- create Net
 	myNet = nn.Sequential()
-	myNet:add(nn.Linear(9,2048))
-	myNet:add(nn.Tanh())
-	myNet:add(nn.Dropout(0.2))
-	myNet:add(nn.Linear(2048,1024))
-	myNet:add(nn.Tanh())
-	myNet:add(nn.Dropout(0.2))
+
+	myNet:add(nn.Linear(9,1024))
+	myNet:add(nn.ReLU())
+	--myNet:add(nn.Dropout(0.5))
+
+	--myNet:add(nn.Linear(2048,1024))
+	--myNet:add(nn.ReLU())
+	--myNet:add(nn.Dropout(0.4))
+
 	myNet:add(nn.Linear(1024,9))
+	--myNet:add(nn.Tanh())
+
 	--leave last transfer function to game
 	myNetCuda = myNet:cuda()
 end
@@ -50,7 +55,6 @@ myAI = AI(myNetCuda, myGame)
 
 --train for numLoops
 myAI.training = com
-myAI.profile = true
 myAI:train()
 
 --myGame:play(com,challenge)
