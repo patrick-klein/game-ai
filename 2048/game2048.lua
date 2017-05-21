@@ -16,13 +16,15 @@ local game2048 = torch.class('game2048')
 -- initialization function
 function game2048:__init()
 
-    -- set scores
+    --set scores for rewards
 	self.newHighScore = 1
 	self.gameOverScore = -1
 
+	--needed for AI to function
 	self.numInputs = 16
 	self.numOutputs = 4
 
+	--will eventually used by AI class for testing
 	self.gameType = 'single-player'
 
 	self.AI = nil
@@ -30,9 +32,8 @@ function game2048:__init()
 
 end
 
-
+--public method that plays a game, player can be human or AI
 function game2048:play(player)
-
 
 	--input argument checks
 	assert(player==hum or player==com,'Computer or human player required.')
@@ -41,6 +42,7 @@ function game2048:play(player)
 	self:generateBoard()
 	prevState = self.state:view(16)
 
+	--declare and initialize variables
 	local highScore = 0
 	self.turn = 1
 	self.draw = self.draw or player==hum
@@ -53,32 +55,37 @@ function game2048:play(player)
     --loop until game ends
     while true do
 
+		--draws board
+		--default on for human, off for AI
 		if self.draw then
 			self:drawBoard()
 			os.execute('sleep 0.1')
 		end
 
-		--choose move
-		-- valid inputs: 'w' 'a' 's' 'd'
+		-- call method to get move from player or AI
 		if player==hum then action = self:playerTurn() end
 		if player==com then action = self:comTurn() end
-
 
 		--update state
 		self.state = self:updateBoard(action)
 
+		--randomly insert value into board
 		self:insertValue()
 		memState = self.state:view(16)
 
+		--assign score
+		----best method for assigning score is still being tested
 		if torch.max(self.state)>highScore then
 			highScore = torch.max(self.state)
 			--score = self.newHighScore
 		--else
 			--score = 0
 		end
+
+		--check for terminal board state
 		isTerminal = self:gameOver()
 
-		--create some memories
+		--create some memories and pass to AI
 		if self.AI and not self.testmode then
 			--score = self.didMerge and 1 or 0
 			--score = isTerminal and -1 or self.mergeSum
@@ -90,8 +97,7 @@ function game2048:play(player)
 			prevState = memState
 		end
 
-
-		--check for terminal condition
+		--end game if terminal
 		if isTerminal then
 			--if self.testmode then self:drawBoard() end
 			if self.draw then
@@ -102,6 +108,7 @@ function game2048:play(player)
 			return highScore
 		end
 
+		--increment turn counter
 		self.turn = self.turn+1
 	end
 end
@@ -116,14 +123,10 @@ function game2048:test()
 end
 
 --private method, adds random values to initial board
----- consider making this more general, by adding random values to available blank squares
 function game2048:generateBoard()
-
 	self.state = torch.Tensor(4,4):zero()
-
 	self:insertValue()
 	self:insertValue()
-
 end
 
 
@@ -133,9 +136,10 @@ function game2048:getNewRandTileVal()
 end
 
 
---privdate method, updates board according to action
+--privdate method, returns new board according to action
 function game2048:updateBoard(action)
 
+	--copy board while manipulating it
 	local newState = self.state:clone()
 
 	--define local function to rotate board
@@ -152,9 +156,8 @@ function game2048:updateBoard(action)
 		newState = newState:contiguous()
 	end
 	
-
 	--rotate so shifting is in the upwards direction
-	--lua doesn't have a switch statement... *sigh*
+	----lua doesn't have a switch statement... *sigh*
 	if action=='a' then
 		rotateCW90(1)
 	elseif action=='s' then
@@ -164,6 +167,7 @@ function game2048:updateBoard(action)
 		rotateCW90(-1)
 	end
 
+	--initialize some more variables
 	self.didMerge = false
 	self.mergeSum = 0
 	self.numMerge = 0
@@ -216,6 +220,7 @@ function game2048:updateBoard(action)
 		rotateCW90(1)
 	end
 
+	--return new board
 	return newState
 
 end
@@ -224,11 +229,12 @@ end
 --private method, insert new value into empty tile
 function game2048:insertValue()
 
+	--flatten board, create new vector to store zero indicies
 	local tempArray = torch.zeros(16)
 	local tempArrayIndex = 0
-
 	self.state:view(self.state,16)
 
+	--find all zero indices
 	for index=1,16 do
 		if self.state[index]==0 then
 			tempArrayIndex = tempArrayIndex+1
@@ -236,19 +242,25 @@ function game2048:insertValue()
 		end
 	end
 
+	----debug
 	if tempArrayIndex==0 then print(self.state:view(4,4)) end
 
+	--shuffle indices
 	local randArray = torch.randperm(tempArrayIndex)
 
+	--randomly insert 2 or 4 into empty tile
 	self.state[tempArray[randArray[1]]] = self:getNewRandTileVal()
+
+	--unflatten board
 	self.state:view(self.state,4,4)
 
 end
 
 
 
---private method, gets valid input from player
+--private method, gets valid input from player (w,a,s,d)
 function game2048:playerTurn()
+	--keep trying until valid input received
 	repeat
 		action = io.read()
 		isValidKey = action=='w' or action=='a' or action=='s' or action=='d'
@@ -265,7 +277,7 @@ function game2048:comTurn()
 	--use eps value if provided by AI
 	local eps = 0 or self.AI.eps
 
-	--AI processed move
+	--generate moves using AI or randomly
 	if self.AI and (torch.uniform()>eps or self.testmode) then
 		local Q = self.AI:process(self.state:view(16))
 		Qsorted, Qindices = torch.sort(Q,1,true)
@@ -275,6 +287,8 @@ function game2048:comTurn()
 	else
 		actionList = torch.randperm(4)
 	end
+
+	--check if moves are valid, return if true
 	for i = 1,4 do
 		action = self:getMoveStringFromIndex(actionList[i])
        	isValidMove = not torch.all(torch.eq(self.state, self:updateBoard(action)))
@@ -282,7 +296,9 @@ function game2048:comTurn()
     end
 end
 
+
 --private method, converts move indices into strings
+----could probably just use typedef or tuple (or lua equivalent)
 function game2048:getMoveStringFromIndex(index)
     if index==1 then return 'w'
     elseif index==2 then return 'a'
@@ -304,6 +320,7 @@ end
 
 --private method, checks is there are any valid moves left
 function game2048:gameOver()
+	--loop through all possible moves, terminal if board is still full
 	for i=1,4 do
 		action = self:getMoveStringFromIndex(i)
 		if not torch.all(torch.eq(self.state, self:updateBoard(action))) then
@@ -317,8 +334,8 @@ end
 --private method, draws board
 function game2048:drawBoard()
 
+	--draw each row separately
 	for row = 1,4 do
-
 		io.write('\n\t')
 		io.write(self.state[row][1])
 		io.write('\t')
@@ -327,9 +344,7 @@ function game2048:drawBoard()
 		io.write(self.state[row][3])
 		io.write('\t')
 		io.write(self.state[row][4])
-
 	end
-
 	io.write('\n\n')
 
 end

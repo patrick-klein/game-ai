@@ -22,24 +22,23 @@ function AI:__init(net, game)
 	self.game = game
 	self.game.AI = self
 
-	-- option to gpu optimize with cuda
-	-- possibly infer from net
+	--option to gpu optimize with cuda
+	----not yet implemented for 2048 AI
 	--self.cuda = true
 
+	--use AI generated moves for training, by default
 	self.training = com
 
-	-- display progress
+	-- display timing profile
 	self.profile = false
 
-	-- training parameters
+	-- training parameters (look up Deep Mind paper for explanations)
 	self.numLoopsToFinish = 1e6
 	self.numLoopsForLinear = 1e5
 	self.firstLoop = 1
 	self.targetNetworkUpdateDelay = 1e3
-
 	self.replayStartSize = 5e3
 	self.replaySize = 1e5
-
 	self.batchSize = 128
 
 	-- eps-greedy value
@@ -63,15 +62,13 @@ end
 -- public method for training neural network
 function AI:train()
 
- 	-- declare locals
+ 	--declare locals
 	local wrapMemory = false
-
 	local playTime	= 0
 	local learnTime	= 0
 	local testTime	= 0
 	local totalTime	= 0
 	local accTime	= 0
-
 	local score			= 0
 	local bestScore		= 0
 	local tallyScore	= 0
@@ -82,10 +79,10 @@ function AI:train()
 	local avgQCount		= 0
 	self.maxQ = 0
 
-
+	--new random seed
 	torch.seed()
 
-	--loop through episodes (play one game and train one batch)
+	--loop through episodes (playing games to increase memory, then train over memories)
 	for loopVar = self.firstLoop,self.numLoopsToFinish do
 		self.loopCount = loopVar
 
@@ -100,13 +97,14 @@ function AI:train()
     		self.memIndex = 0
     	end
 
-		--option to load memory dump
+		--option to load memory dump (contains intialized memories from prior calls)
+		--used during testing since it can take a while to generate
 		if false and loopVar==1 then
 			self.memory = torch.load('./saves/memoryDump.dat')
 			self.memIndex = self.replayStartSize
 		end
 
-		--episode of play
+		--play game until memory is initialized, or batchSize reached
 		sys.tic()
 		self.net:evaluate()
 		self.game.testmode = false
@@ -133,12 +131,14 @@ function AI:train()
 			self.replay[i] = self.memory[randMems[i]]
 		end
 
-		--episode of q-learning
+		--reset targetNet to enforce off-policy learning (look up Deep Mind paper)
 		if loopVar%self.targetNetworkUpdateDelay==0 then
 			self.targetNet = self.net:clone()
 			io.write('\n')
 			print('Updating target network.')
 		end
+
+		--episode of q-learning
 		sys.tic()
 		avgQ = avgQ + self:qLearn()
 		avgQCount = avgQCount + self.batchSize
@@ -175,6 +175,7 @@ function AI:train()
 			avgScore = tallyScore/tallyCount
 
 			--display iteration, score, and running average
+			--annotate with * for new bestScore, or - for declining average
 			io.write('\n')
 			io.write('\t')	io.write(loopVar)			io.write('\n')
 			if score==bestScore then io.write('*') end
@@ -183,9 +184,12 @@ function AI:train()
 			io.write('\t')	io.write(avgScore)			io.write('\n')
 			io.write('\t')	io.write(avgQ/avgQCount)	io.write('\n')
 
+			--printing maxQ
+			--might be useful for testing
 			print(self.maxQ)
 			self.maxQ = 0
 
+			--update averages
 			prevAvgScore = avgScore
 			avgQ = 0
 			avgQCount = 0
@@ -199,6 +203,7 @@ function AI:train()
        			io.write('testTime') io.write('\t') io.write(testTime/totalTime)	io.write('\n')
 			end
 
+			--reset timer
 			accTime = 0
 		end
 	end
@@ -206,14 +211,17 @@ end
 
 
 
---private method to recall memories and set target.  calls optimization function
+--private method to recall memories and set target, calls optimization function
 function AI:qLearn()
 
+	--create tensors to hold inputs and targets for optimization function
 	local batchInputs = torch.Tensor(self.batchSize,self.game.numInputs)
 	local batchTargets = torch.Tensor(self.batchSize,self.game.numOutputs)
 
+	--initialize average Q value
 	local avgQ = 0
 
+	--must be set to evaluate, need to get future Q values
 	self.net:evaluate()
 	self.targetNet:evaluate()
 	self.game.testmode = true
@@ -233,13 +241,16 @@ function AI:qLearn()
 			--terminal gets reward only
             y = reward
         else
-			--non-terminal adds future (discounted) reward
-			Qnext = self.targetNet:forward(nextState)	--calculate expected return using current parameters
+			--non-terminal adds future discounted reward, 
+			Qnext = self.targetNet:forward(nextState)	--calculate expected return using targetNet
             y = reward + self.gamma*Qnext:max()
         end
+
+		--update average Q
 		avgQ = avgQ + y
 		if y > self.maxQ then self.maxQ = y end
 
+		----debug: checking for nil value
 		if avgQ~=avgQ then
 			print(Qnext)
 			print(self.targetNet)
@@ -265,6 +276,7 @@ function AI:qLearn()
 		if torch.abs(y-output[action])<1 or terminal then
 			target[action] = y
 		else
+			----is there a better way to check sign(y-output[action])?
 			target[action] = output[action]+(y-output[action])/torch.abs(y-output[action])
 		end
 
@@ -278,27 +290,31 @@ function AI:qLearn()
 
     end
 
+	--DEBUG--
 	--print(torch.round(1000*qVal/self.batchSize)/1000)
 
 	--batch optimization function
 	self:optim(batchInputs,batchTargets)
 
+	--return average Q value
 	return avgQ
 
 end
 
 
---private method for batch back propagation and parameter optimization
+--private method for batch back propagation and parameter optimization, only one iteration
 function AI:optim(batchInputs,batchTargets,actionVals)
 
-
+	--set net to training
 	self.net:training()
 
+	--set training settings
 	--local config = {}
 	local config = {learningRate = 0.00025}
 	local criterion = nn.MSECriterion()
 	local params,gradParams = self.net:getParameters()
 
+	--create function that returns loss,gradParams for optimization
 	local function feval(params)
 		gradParams:zero()
 		local outputs = self.net:forward(batchInputs)
@@ -308,11 +324,13 @@ function AI:optim(batchInputs,batchTargets,actionVals)
 		end
 		local loss = criterion:forward(outputs, batchTargets)
 		local dloss_doutput = criterion:backward(outputs,batchTargets)
+		--need to find way to restrict dloss_doutput to one output
 		--dloss_doutput[1-
 		self.net:backward(batchInputs,dloss_doutput)
 		return loss,gradParams
 	end
 
+	--apply optimization method
 	--optim.sgd(feval,params,config)
 	--optim.adamax(feval,params,config)
 	optim.rmsprop(feval,params,config)
@@ -322,15 +340,18 @@ end
 -- private method for running test trials
 function AI:selfEvaluate()
 
+	--intialize locals
 	local numTrials = 20
 	local runningTotal = 0
 
 	-- random average high score is 67.392, based on 1000 trials
 	local randAvg = 67.392
 
+	--set net to evaluate, and game to testmode
 	self.net:evaluate()
 	self.game.testmode = true
 
+	--find total score across trials
 	--self.game.draw = true
 	for myEval=1,numTrials do
 		--torch.manualSeed(myEval*123)
@@ -338,7 +359,10 @@ function AI:selfEvaluate()
 	end
 	self.game.draw = false
 
+	--new random seed
 	torch.seed()
+
+	--return ratio of AI avg to randAvg
 	return (runningTotal/numTrials)/randAvg
 
 end

@@ -12,22 +12,17 @@ require 'game2048'
 com = 1
 hum = 2
 
+--quickly change between new and archived networks
 if false then
 	myNet = torch.load('./saves/myNetBest_2048.dat')     --option to load from file
 else
 	-- create Net
 	myNet = nn.Sequential()
 
-	--myNet:add(nn.WeightNorm(nn.Linear(16,64)))
 	myNet:add(nn.Linear(16,128))
 	myNet:add(nn.ReLU())
 
-	--myNet:add(nn.WeightNorm(nn.Linear(256,128)))
-	--myNet:add(nn.Linear(64,64))
-	--myNet:add(nn.ReLU())
-
 	myNet:add(nn.WeightNorm(nn.Linear(128,64)))
-	--myNet:add(nn.Linear(64,64))
 	myNet:add(nn.ReLU())
 
 	myNet:add(nn.Linear(64,4))
@@ -42,10 +37,7 @@ myGame = game2048()
 myAI = AI(myNet, myGame)
 
 --training parameters
-
+--myAI.training = hum
 
 --train for numLoops
---myAI.training = hum
 myAI:train()
-
---myGame:play(com,challenge)
