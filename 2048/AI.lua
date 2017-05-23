@@ -7,6 +7,7 @@
 		__init(net,game)
 		train()
 		process(input)
+		selfEvaluate()
 
 ]]
 
@@ -43,4 +44,10 @@ end
 --public shorthand for forward pass model
 function AI:process(input)
 	assert(false,'AI:process() method not implemented!')
+end
+
+
+-- method for running test trials
+function bagLearner:selfEvaluate()
+	assert(false,'AI:selfEvaluate() method not implemented!')
 end
