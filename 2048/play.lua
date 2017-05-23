@@ -7,15 +7,12 @@
 
 --require libraries
 require 'torch'
---require 'nn'
-
---require 'cutorch'
---require 'cunn'
 
 --require classes
 require 'qLearner'
 require 'twenty48'
 
+--globals
 com = 1
 hum = 2
 
@@ -29,6 +26,5 @@ else
 	myNet = torch.load('./saves/myNetBest_2048.dat_archive')     --option to load from file
 	myAI = qLearner(myGame, myNet)
 	myGame.draw = true
-	--torch.manualSeed(123)
 	myGame:play(com)
 end
