@@ -3,7 +3,7 @@
 --[[
 	This script creates an instance of the game
 	Using the if statement, either a human or AI will play the game
---]]
+]]
 
 --require libraries
 require 'torch'
@@ -13,22 +13,21 @@ require 'torch'
 --require 'cunn'
 
 --require classes
---require 'AI'
-require 'game2048'
+require 'qLearner'
+require 'twenty48'
 
 com = 1
 hum = 2
 
 --create game instance
-myGame = game2048()
+myGame = twenty48()
 
 --quick way to choose human or AI player
 if false then
 	myGame:play(hum)
 else
-	--create instance for AI_class and assign net
-	myNet = torch.load('./saves/myNetBest_2048.dat')     --option to load from file
-	myAI = AI(myNet, myGame)
+	myNet = torch.load('./saves/myNetBest_2048.dat_archive')     --option to load from file
+	myAI = qLearner(myGame, myNet)
 	myGame.draw = true
 	--torch.manualSeed(123)
 	myGame:play(com)

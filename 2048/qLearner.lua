@@ -1,4 +1,19 @@
 
+--[[
+
+	Inherited Methods
+		process(input)
+
+	Private Methods
+		__init(net, game)
+		train()
+		qLearn()
+		optim(batchInputs,batchTargets,actionVals)
+		selfEvaluate()
+		updateConstants()
+
+]]
+
 -- require libraries
 require 'torch'
 require 'nn'
@@ -6,31 +21,32 @@ require 'optim'
 require 'io'
 
 -- require classes
+require 'AI'
+
 
 --globals
 
--- create AI_class
-local AI = torch.class('AI')
+
+-- declare qLearner class
+local qLearner, parent = torch.class('qLearner', 'AI')
 
 
 -- initialization function
-function AI:__init(net, game)
+function qLearner:__init(game, net)
 
-	-- required to init
+	parent.__init(self, game)
+
+	assert(net, 'No neural network to initialize AI!')
 	self.net = net
 	self.targetNet = self.net:clone()
-	self.game = game
-	self.game.AI = self
-
-	--option to gpu optimize with cuda
-	----not yet implemented for 2048 AI
-	--self.cuda = true
 
 	--use AI generated moves for training, by default
 	self.training = com
 
-	-- display timing profile
+	-- flags for
 	self.profile = false
+	self.backup = true
+	self.verbose = true
 
 	-- training parameters (look up Deep Mind paper for explanations)
 	self.numLoopsToFinish = 1e6
@@ -45,22 +61,18 @@ function AI:__init(net, game)
 	self.eps_initial 		= 1.0
 	local eps_final 		= 0.1
 	self.eps_delta			= eps_final-self.eps_initial
-	self.eps 				= self.eps_initial
+	self.eps						= self.eps_initial
 
 	-- future reward discount
-	self.gamma_initial 		= 0.01
-	local gamma_final 		= 0.99
+	self.gamma_initial 	= 0.01
+	local gamma_final 	= 0.50
 	self.gamma_delta		= gamma_final-self.gamma_initial
-	self.gamma 				= self.gamma_initial
-
-	-- memory initialization
-	self.memory = {}
-	self.memIndex = 0
+	self.gamma 					= self.gamma_initial
 
 end
 
 -- public method for training neural network
-function AI:train()
+function qLearner:train()
 
  	--declare locals
 	local wrapMemory = false
@@ -92,10 +104,10 @@ function AI:train()
 		end
 
 		--wrap dataIndex when full
-    	if self.memIndex > self.replaySize then
-   			wrapMemory = true
-    		self.memIndex = 0
-    	end
+  	if self.memIndex > self.replaySize then
+ 			wrapMemory = true
+  		self.memIndex = 0
+  	end
 
 		--option to load memory dump (contains intialized memories from prior calls)
 		--used during testing since it can take a while to generate
@@ -111,8 +123,10 @@ function AI:train()
 		if wrapMemory or self.memIndex>=self.replayStartSize then
 			fillMemory = self.memIndex+self.batchSize
 		else
-			io.write('\n')
-			print('Initializing replay memory, this may take some time...')
+			if self.verbose then
+				io.write('\n')
+				print('Initializing replay memory, this may take some time...')
+			end
 			fillMemory = self.replayStartSize
 		end
 		repeat self.game:play(com)
@@ -125,17 +139,19 @@ function AI:train()
 		end
 
 		--fill testSet with random values in dataset
-   		self.replay = {}
+		self.replay = {}
 		randMems = wrapMemory and torch.randperm(self.replaySize) or torch.randperm(self.memIndex)
-   		for i=1,self.batchSize do
+   	for i=1,self.batchSize do
 			self.replay[i] = self.memory[randMems[i]]
 		end
 
 		--reset targetNet to enforce off-policy learning (look up Deep Mind paper)
 		if loopVar%self.targetNetworkUpdateDelay==0 then
 			self.targetNet = self.net:clone()
-			io.write('\n')
-			print('Updating target network.')
+			if self.verbose then
+				io.write('\n')
+				print('Updating target network.')
+			end
 		end
 
 		--episode of q-learning
@@ -147,12 +163,12 @@ function AI:train()
 		--record time
 		accTime = accTime+playTime+learnTime
 
-    	--display performance occasionally
-    	if accTime>20 or loopVar==self.firstLoop then		-- displays every x seconds
+    --display performance occasionally
+    if (self.verbose or self.backup) and (accTime>20 or loopVar==self.firstLoop) then
 
-        	--backup twice (in event that save is corrupted from interrupt)
+      --backup twice (in event that save is corrupted from interrupt)
 			torch.save('./saves/myNet_2048.dat', self.net)
-        	torch.save('./saves/myNet_2048.dat_bak', self.net)
+      torch.save('./saves/myNet_2048.dat_bak', self.net)
 
 			--test performance against trials
 			sys.tic()
@@ -177,16 +193,16 @@ function AI:train()
 			--display iteration, score, and running average
 			--annotate with * for new bestScore, or - for declining average
 			io.write('\n')
-			io.write('\t')	io.write(loopVar)			io.write('\n')
+			io.write('\tIteration\t')	io.write(loopVar)			io.write('\n')
 			if score==bestScore then io.write('*') end
-			io.write('\t')	io.write(score)				io.write('\n')
+			io.write('\tCurrent Score\t')	io.write(score)				io.write('\n')
 			if avgScore<prevAvgScore then io.write('-') end
-			io.write('\t')	io.write(avgScore)			io.write('\n')
-			io.write('\t')	io.write(avgQ/avgQCount)	io.write('\n')
+			io.write('\tAverage Score\t')	io.write(avgScore)			io.write('\n')
+			io.write('\tAverage Q\t')	io.write(avgQ/avgQCount)	io.write('\n')
 
 			--printing maxQ
 			--might be useful for testing
-			print(self.maxQ)
+			--print(self.maxQ)
 			self.maxQ = 0
 
 			--update averages
@@ -198,9 +214,9 @@ function AI:train()
 			if self.profile then
 				totalTime = playTime + learnTime + testTime
 				io.write('\n')
-       			io.write('playTime') io.write('\t') io.write(playTime/totalTime)	io.write('\n')
-       			io.write('trainTime') io.write('\t') io.write(learnTime/totalTime)	io.write('\n')
-       			io.write('testTime') io.write('\t') io.write(testTime/totalTime)	io.write('\n')
+   			io.write('playTime') io.write('\t') io.write(playTime/totalTime)	io.write('\n')
+   			io.write('trainTime') io.write('\t') io.write(learnTime/totalTime)	io.write('\n')
+   			io.write('testTime') io.write('\t') io.write(testTime/totalTime)	io.write('\n')
 			end
 
 			--reset timer
@@ -212,7 +228,7 @@ end
 
 
 --private method to recall memories and set target, calls optimization function
-function AI:qLearn()
+function qLearner:qLearn()
 
 	--create tensors to hold inputs and targets for optimization function
 	local batchInputs = torch.Tensor(self.batchSize,self.game.numInputs)
@@ -229,7 +245,7 @@ function AI:qLearn()
 
         --read values from set
         local origState = self.replay[move][1]			--passed directly into batchInputs
-        local nextState = self.replay[move][2]	
+        local nextState = self.replay[move][2]
         local action	= self.replay[move][3]
         local reward	= self.replay[move][4]
         local terminal	= self.replay[move][5]
@@ -241,7 +257,7 @@ function AI:qLearn()
 			--terminal gets reward only
             y = reward
         else
-			--non-terminal adds future discounted reward, 
+			--non-terminal adds future discounted reward,
 			Qnext = self.targetNet:forward(nextState)	--calculate expected return using targetNet
             y = reward + self.gamma*Qnext:max()
         end
@@ -303,7 +319,7 @@ end
 
 
 --private method for batch back propagation and parameter optimization, only one iteration
-function AI:optim(batchInputs,batchTargets,actionVals)
+function qLearner:optim(batchInputs,batchTargets,actionVals)
 
 	--set net to training
 	self.net:training()
@@ -338,7 +354,7 @@ function AI:optim(batchInputs,batchTargets,actionVals)
 end
 
 -- private method for running test trials
-function AI:selfEvaluate()
+function qLearner:selfEvaluate()
 
 	--intialize locals
 	local numTrials = 20
@@ -369,18 +385,10 @@ end
 
 
 -- private method run once every train loop
-function AI:updateConstants()
+function qLearner:updateConstants()
 
 	-- update learning constants
 	self.eps = self.eps_initial+self.eps_delta*(self.loopCount/self.numLoopsForLinear)
 	self.gamma = self.gamma_initial+self.gamma_delta*(self.loopCount/self.numLoopsForLinear)
 
 end
-
-
---public shorthand for forward pass model
-function AI:process(input)
-	return self.net:forward(input)
-end
-
-

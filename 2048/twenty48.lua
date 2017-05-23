@@ -8,13 +8,16 @@ require 'nn'
 require 'io'
 
 -- require classes
-require 'AI_cpu'
+require 'AI'
+require 'game'
 
--- create game2048
-local game2048 = torch.class('game2048')
+-- create twenty48
+local twenty48, parent = torch.class('twenty48', 'game')
 
 -- initialization function
-function game2048:__init()
+function twenty48:__init()
+
+	parent.__init(self)
 
     --set scores for rewards
 	self.newHighScore = 1
@@ -24,21 +27,18 @@ function game2048:__init()
 	self.numInputs = 16
 	self.numOutputs = 4
 
-	--will eventually used by AI class for testing
-	self.gameType = 'single-player'
-
-	self.AI = nil
-	self.testmode = false
+	--will eventually be used by AI class for testing
+	--self.gameType = 'single-player'
 
 end
 
 --public method that plays a game, player can be human or AI
-function game2048:play(player)
+function twenty48:play(player)
 
 	--input argument checks
 	assert(player==hum or player==com,'Computer or human player required.')
 
-	--initialize board states 
+	--initialize board states
 	self:generateBoard()
 	prevState = self.state:view(16)
 
@@ -52,8 +52,8 @@ function game2048:play(player)
 	local score = 0
 	local memState
 
-    --loop until game ends
-    while true do
+  --loop until game ends
+  while true do
 
 		--draws board
 		--default on for human, off for AI
@@ -88,12 +88,13 @@ function game2048:play(player)
 		--create some memories and pass to AI
 		if self.AI and not self.testmode then
 			--score = self.didMerge and 1 or 0
-			--score = isTerminal and -1 or self.mergeSum
-			score = isTerminal and -1 or (self.didMerge and 1 or 0)
+			score = isTerminal and -1 or self.mergeSum
+			--score = isTerminal and -1 or (self.didMerge and 1 or 0)
 			--score = isTerminal and -1 or score
 			actionIndex = self:getMoveIndexFromString(action)
 			self.AI.memIndex = self.AI.memIndex + 1
-			self.AI.memory[self.AI.memIndex] = {prevState, memState, actionIndex, score, isTerminal}
+			--it's a good idea to scale back the input logarithmically
+			self.AI.memory[self.AI.memIndex] = {torch.log1p(prevState), torch.log1p(memState), actionIndex, score, isTerminal}
 			prevState = memState
 		end
 
@@ -104,6 +105,7 @@ function game2048:play(player)
 				self:drawBoard()
 				print('Game Over!')
 				print(self.turn+1)
+				print(highScore)
 			end
 			return highScore
 		end
@@ -113,17 +115,8 @@ function game2048:play(player)
 	end
 end
 
-
---public method for running trials on AI
-function game2048:test()
-	self.testmode = true
-	score = self:play(com)
-	self.testmode = false
-	return score
-end
-
 --private method, adds random values to initial board
-function game2048:generateBoard()
+function twenty48:generateBoard()
 	self.state = torch.Tensor(4,4):zero()
 	self:insertValue()
 	self:insertValue()
@@ -131,13 +124,13 @@ end
 
 
 --private method, shorthand for choosing 2 or 4 randomly
-function game2048:getNewRandTileVal()
+function twenty48:getNewRandTileVal()
 	return 2*(1+torch.round(torch.uniform()))
 end
 
 
 --privdate method, returns new board according to action
-function game2048:updateBoard(action)
+function twenty48:updateBoard(action)
 
 	--copy board while manipulating it
 	local newState = self.state:clone()
@@ -155,7 +148,7 @@ function game2048:updateBoard(action)
 		if rotate_by==1 then newState=newState:t() end
 		newState = newState:contiguous()
 	end
-	
+
 	--rotate so shifting is in the upwards direction
 	----lua doesn't have a switch statement... *sigh*
 	if action=='a' then
@@ -186,7 +179,7 @@ function game2048:updateBoard(action)
 				-- if next non-zero block is same, merge (unless already merged)
 				if newState[rowUphill][col]==newState[row][col] and newState[row][col]~=0 and not ignoreMerge then
 					newState[row][col] = newState[row][col]*2
-					self.mergeSum = self.mergeSum + newState[row][col]/1024
+					self.mergeSum = self.mergeSum + torch.log1p(newState[row][col])/torch.log(2)/11
 					newState[rowUphill][col] = 0
 					ignoreMerge = true
 					self.didMerge = true
@@ -227,7 +220,7 @@ end
 
 
 --private method, insert new value into empty tile
-function game2048:insertValue()
+function twenty48:insertValue()
 
 	--flatten board, create new vector to store zero indicies
 	local tempArray = torch.zeros(16)
@@ -259,7 +252,7 @@ end
 
 
 --private method, gets valid input from player (w,a,s,d)
-function game2048:playerTurn()
+function twenty48:playerTurn()
 	--keep trying until valid input received
 	repeat
 		action = io.read()
@@ -272,7 +265,7 @@ function game2048:playerTurn()
 end
 
 --private method, generates move from the AI
-function game2048:comTurn()
+function twenty48:comTurn()
 
 	--use eps value if provided by AI
 	local eps = 0 or self.AI.eps
@@ -299,27 +292,27 @@ end
 
 --private method, converts move indices into strings
 ----could probably just use typedef or tuple (or lua equivalent)
-function game2048:getMoveStringFromIndex(index)
+function twenty48:getMoveStringFromIndex(index)
     if index==1 then return 'w'
     elseif index==2 then return 'a'
     elseif index==3 then return 's'
     elseif index==4 then return 'd'
-	end
+		end
 end
 
 
 --private method, converts move string to index
-function game2048:getMoveIndexFromString(string)
+function twenty48:getMoveIndexFromString(string)
     if string=='w' then return 1
     elseif string=='a' then return 2
     elseif string=='s' then return 3
     elseif string=='d' then return 4
-	end
+		end
 end
 
 
 --private method, checks is there are any valid moves left
-function game2048:gameOver()
+function twenty48:gameOver()
 	--loop through all possible moves, terminal if board is still full
 	for i=1,4 do
 		action = self:getMoveStringFromIndex(i)
@@ -332,7 +325,7 @@ end
 
 
 --private method, draws board
-function game2048:drawBoard()
+function twenty48:drawBoard()
 
 	--draw each row separately
 	for row = 1,4 do
