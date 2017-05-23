@@ -1,5 +1,6 @@
 --[[
 	Creates an instance of an AI learner, then trains it
+	Play a game when finished
 ]]
 
 
@@ -9,6 +10,7 @@ require 'nn'
 
 --require classes
 require 'qLearner'
+require 'bagLearner'
 require 'twenty48'
 
 
@@ -40,11 +42,16 @@ myGame = twenty48()
 
 
 --create instance for AI and assign net,game
-myAI = qLearner(myGame, myNet)
-
+--myAI = qLearner(myGame, myNet)
+myAI = bagLearner(myGame)
 
 --training parameters
 --myAI.training = hum
 
---train for numLoops
+--train learner
 myAI:train()
+
+--play game
+torch.save('./saves/bagLearner.ai', myAI)
+myGame.draw = true
+myGame:play(com)

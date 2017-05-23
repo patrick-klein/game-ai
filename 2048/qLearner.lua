@@ -4,7 +4,7 @@
 	Inherited Methods
 		process(input)
 
-	Private Methods
+	Class Methods
 		__init(net, game)
 		train()
 		qLearn()
@@ -43,7 +43,8 @@ function qLearner:__init(game, net)
 	--use AI generated moves for training, by default
 	self.training = com
 
-	-- flags for
+	--flags for display/backups
+	--backup and verbose aren't really implemented well at this point
 	self.profile = false
 	self.backup = true
 	self.verbose = true
@@ -59,14 +60,14 @@ function qLearner:__init(game, net)
 
 	-- eps-greedy value
 	self.eps_initial 		= 1.0
-	local eps_final 		= 0.1
-	self.eps_delta			= eps_final-self.eps_initial
+	self.eps_final 			= 0.1
+	self.eps_delta			= self.eps_final-self.eps_initial
 	self.eps						= self.eps_initial
 
 	-- future reward discount
 	self.gamma_initial 	= 0.01
-	local gamma_final 	= 0.50
-	self.gamma_delta		= gamma_final-self.gamma_initial
+	self.gamma_final 		= 0.50
+	self.gamma_delta		= self.gamma_final-self.gamma_initial
 	self.gamma 					= self.gamma_initial
 
 end
@@ -80,14 +81,14 @@ function qLearner:train()
 	local learnTime	= 0
 	local testTime	= 0
 	local totalTime	= 0
-	local accTime	= 0
+	local accTime		= 0
 	local score			= 0
 	local bestScore		= 0
 	local tallyScore	= 0
 	local tallyCount	= 0
 	local avgScore		= 0
 	local prevAvgScore	= 0
-	local avgQ			= 0
+	local avgQ				= 0
 	local avgQCount		= 0
 	self.maxQ = 0
 
@@ -125,7 +126,7 @@ function qLearner:train()
 		else
 			if self.verbose then
 				io.write('\n')
-				print('Initializing replay memory, this may take some time...')
+				print('Initializing replay memory...')
 			end
 			fillMemory = self.replayStartSize
 		end
@@ -193,11 +194,11 @@ function qLearner:train()
 			--display iteration, score, and running average
 			--annotate with * for new bestScore, or - for declining average
 			io.write('\n')
-			io.write('\tIteration\t')	io.write(loopVar)			io.write('\n')
+			io.write('\tIteration\t')	io.write(loopVar)					io.write('\n')
 			if score==bestScore then io.write('*') end
 			io.write('\tCurrent Score\t')	io.write(score)				io.write('\n')
 			if avgScore<prevAvgScore then io.write('-') end
-			io.write('\tAverage Score\t')	io.write(avgScore)			io.write('\n')
+			io.write('\tAverage Score\t')	io.write(avgScore)		io.write('\n')
 			io.write('\tAverage Q\t')	io.write(avgQ/avgQCount)	io.write('\n')
 
 			--printing maxQ
@@ -223,6 +224,7 @@ function qLearner:train()
 			accTime = 0
 		end
 	end
+	self.net:evaluate()
 end
 
 
@@ -391,4 +393,10 @@ function qLearner:updateConstants()
 	self.eps = self.eps_initial+self.eps_delta*(self.loopCount/self.numLoopsForLinear)
 	self.gamma = self.gamma_initial+self.gamma_delta*(self.loopCount/self.numLoopsForLinear)
 
+end
+
+
+--public shorthand for forward pass model
+function qLearner:process(input)
+	return self.net:forward(input)
 end

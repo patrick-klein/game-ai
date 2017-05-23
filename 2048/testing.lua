@@ -6,7 +6,7 @@ require 'nn'
 
 --require classes
 require 'twenty48'
-require 'boostLearner'
+require 'bagLearner'
 
 --set globals
 com = 1
@@ -25,7 +25,7 @@ myNet:add(nn.Linear(24,4))
 myGame = twenty48()
 
 --create instance for learner and assign net,game
-myAI = boostLearner(myGame)
+myAI = bagLearner(myGame)
 
 --train AI
-myAI:train()
+--myAI:train()

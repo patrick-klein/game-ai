@@ -42,5 +42,5 @@ end
 
 --public shorthand for forward pass model
 function AI:process(input)
-	return self.net:forward(input)
+	assert(false,'AI:process() method not implemented!')
 end
