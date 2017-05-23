@@ -48,6 +48,6 @@ end
 
 
 -- method for running test trials
-function bagLearner:selfEvaluate()
+function AI:selfEvaluate()
 	assert(false,'AI:selfEvaluate() method not implemented!')
 end
