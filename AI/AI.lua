@@ -6,8 +6,8 @@
 	Public Methods
 		__init(net,game)
 		train()
+    selfEvaluate()
 		process(input)
-		selfEvaluate()
 
 ]]
 
@@ -40,14 +40,12 @@ function AI:train()
 	assert(false,'AI:train() method not implemented!')
 end
 
+-- method for running test trials
+function AI:selfEvaluate()
+	assert(false,'AI:selfEvaluate() method not implemented!')
+end
 
 --public shorthand for forward pass model
 function AI:process(input)
 	assert(false,'AI:process() method not implemented!')
-end
-
-
--- method for running test trials
-function AI:selfEvaluate()
-	assert(false,'AI:selfEvaluate() method not implemented!')
 end

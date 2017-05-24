@@ -13,10 +13,6 @@ require 'torch'
 require 'nn'
 require 'io'
 
-
--- require classes
-
-
 -- create game
 local game = torch.class('game')
 
@@ -27,22 +23,28 @@ function game:__init()
 	self.AI = nil
 	self.testmode = false
 
+  self.name = nil
+
+	self.numInputs   = nil
+	self.numOutputs  = nil
+  self.numPlayers = nil
+
+  self.draw = nil
+
+  self.maxScore = nil
+
 end
 
 
 --public method that plays a game, player can be human or AI
 --must return a score
-function game:play(player)
-
+function game:play()
 	assert(false, 'game:play(player) method not implemented!')
-
 end
 
 
 --public method for running trials on AI
+--must return a score
 function game:test()
-	self.testmode = true
-	score = self:play(com)
-	self.testmode = false
-	return score
+	assert(false, 'game:test() method not implemented!')
 end

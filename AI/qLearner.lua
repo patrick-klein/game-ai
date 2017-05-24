@@ -10,7 +10,9 @@
 		qLearn()
 		optim(batchInputs,batchTargets,actionVals)
 		selfEvaluate()
+    drawBars(score,divStep,maxScore)
 		updateConstants()
+    process(input)
 
 ]]
 
@@ -21,7 +23,7 @@ require 'optim'
 require 'io'
 
 -- require classes
-require 'AI'
+require 'AI/AI'
 
 
 --globals
@@ -53,10 +55,10 @@ function qLearner:__init(game, net)
 	self.numLoopsToFinish = 1e6
 	self.numLoopsForLinear = 1e5
 	self.firstLoop = 1
-	self.targetNetworkUpdateDelay = 5e2
+	self.targetNetworkUpdateDelay = 1e3
 	self.replayStartSize = 1e4
 	self.replaySize = 1e5
-	self.batchSize = 256
+	self.batchSize = 128
 
 	-- eps-greedy value
 	self.eps_initial 		= 1.0
@@ -76,20 +78,20 @@ end
 function qLearner:train()
 
  	--declare locals
-	local wrapMemory 		= false
-	local playTime			= 0
-	local learnTime			= 0
-	local testTime			= 0
-	local totalTime			= 0
-	local accTime				= 0
-	local score					= 0
-	local bestScore			= 0
-	local tallyScore		= 0
-	local tallyCount		= 0
-	local avgScore			= 0
-	local prevAvgScore	= 0
-	local avgQ					= 0
-	local avgQCount			= 0
+	local wrapMemory    = false
+	local playTime      = 0
+	local learnTime     = 0
+	local testTime      = 0
+	local totalTime     = 0
+	local accTime       = 0
+	local score         = 0
+	local bestScore     = 0
+	local tallyScore    = 0
+	local tallyCount    = 0
+	local avgScore      = 0
+	local prevAvgScore  = 0
+	local avgQ          = 0
+	local avgQCount     = 0
 
 	--new random seed
 	torch.seed()
@@ -128,7 +130,12 @@ function qLearner:train()
 			end
 			fillMemory = self.replayStartSize
 		end
-		repeat self.game:play(com)
+		repeat
+      if self.game.numPlayers==1 then
+        self.game:play(com)
+      elseif self.game.numPlayers==2 then
+        self.game:play(com,com)
+      end
 		until self.memIndex>=fillMemory
 		playTime = sys.toc()
 
@@ -148,7 +155,7 @@ function qLearner:train()
 		if loopVar%self.targetNetworkUpdateDelay==0 then
 			self.targetNet = self.net:clone()
 			if self.verbose then
-				--io.write('\n')
+        --io.write('\n')
 				--print('Updating target network.')
 			end
 		end
@@ -191,27 +198,18 @@ function qLearner:train()
 
 			--display iteration, score, and running average
 			--annotate with * for new bestScore, or - for declining average
-			--[[
-			io.write('\n')
-			io.write('\tIteration\t')	io.write(loopVar)					io.write('\n')
-			if score==bestScore then io.write('*') end
-			io.write('\tCurrent Score\t')	io.write(score)				io.write('\n')
-			if avgScore<prevAvgScore then io.write('-') end
-			io.write('\tAverage Score\t')	io.write(avgScore)		io.write('\n')
-			io.write('\tAverage Q\t')	io.write(avgQ/avgQCount)	io.write('\n')
-			]]
 
-			local numStars = torch.min(torch.Tensor({80,80*(score/4)}))
-			local wholeNum = 1
-			for star=1,numStars do
-				if torch.floor(4*star/80)>=wholeNum then
-					io.write('|')
-					wholeNum = wholeNum+1
-				else
-					io.write('*')
-				end
-			end
-			io.write('\n')
+      if false then
+  			io.write('\n')
+  			io.write('\tIteration\t')     io.write(loopVar)        io.write('\n')
+  			if score==bestScore then      io.write('*') end
+  			io.write('\tCurrent Score\t')	io.write(score)          io.write('\n')
+  			if avgScore<prevAvgScore then io.write('-') end
+  			io.write('\tAverage Score\t')	io.write(avgScore)       io.write('\n')
+  			io.write('\tAverage Q\t')	    io.write(avgQ/avgQCount) io.write('\n')
+      else
+        self:drawBars(score)
+      end
 
 			--update averages
 			prevAvgScore = avgScore
@@ -335,23 +333,50 @@ end
 -- private method for running test trials
 function qLearner:selfEvaluate()
 
-	--intialize locals
-	local numTrials = 20
-	local runningTotal = 0
+  if self.game.name == '2048' then
+  	--intialize locals
+  	local numTrials = 20
+  	local runningTotal = 0
+  	-- random average high score is 67.392, based on 1000 trials
+  	local randAvg = 67.392
+  	--set net to evaluate
+  	self.net:evaluate()
+  	--find total score across trials
+  	for myEval=1,numTrials do
+  		runningTotal = runningTotal+self.game:test()
+  	end
+  	--return ratio of AI avg to randAvg
+  	return (runningTotal/numTrials)/randAvg
 
-	-- random average high score is 67.392, based on 1000 trials
-	local randAvg = 67.392
+  elseif self.game.name == 'Tic Tac Toe' then
+    local numTrials = 1e2
+    local runningTotal = 0
+    rWin = 0 rLose = 0
+    for myEval=1,numTrials do
+      runningTotal = runningTotal + self.game:test()
+    end
+    return (1/2)*(1+runningTotal/numTrials)
 
-	--set net to evaluate
-	self.net:evaluate()
+  end
+end
 
-	--find total score across trials
-	for myEval=1,numTrials do
-		runningTotal = runningTotal+self.game:test()
-	end
 
-	--return ratio of AI avg to randAvg
-	return (runningTotal/numTrials)/randAvg
+--method that prints a neat bar to visualize score
+function qLearner:drawBars(score,divStep,maxScore)
+
+  maxScore = self.game.maxScore
+  divStep = maxScore/4
+  div = divStep
+  local numStars = torch.min(torch.Tensor({80,80*(score/maxScore)}))
+  for star=1,numStars do
+    if maxScore*star/80>=div then
+      io.write('|')
+      div = div+divStep
+    else
+      io.write('*')
+    end
+  end
+  io.write('\n')
 
 end
 

@@ -9,9 +9,10 @@ require 'torch'
 require 'nn'
 
 --require classes
-require 'qLearner'
-require 'bagLearner'
-require 'twenty48'
+require 'AI/qLearner'
+require 'AI/bagLearner'
+require 'games/twenty48'
+require 'games/ticTacToe'
 
 
 --set globals
@@ -20,38 +21,32 @@ hum = 2
 
 
 --quickly change between new and archived networks
-if true then
+if false then
 	myNet = torch.load('./saves/myNetBest_2048.dat_archive')
 	print(myNet)
 else
 	myNet = nn.Sequential()
-	myNet:add(nn.Linear(16,256))
+	myNet:add(nn.Linear(9,128))
 	myNet:add(nn.ReLU())
-	myNet:add(nn.Linear(256,256))
-	myNet:add(nn.ReLU())
-	--myNet:add(nn.WeightNorm(nn.Linear(128,64)))
+	--myNet:add(nn.Linear(256,256))
 	--myNet:add(nn.ReLU())
-	myNet:add(nn.Linear(256,4))
-	--myNet:add(nn.SoftMax())
-	--leave last transfer function to game
+	myNet:add(nn.Linear(128,9))
 end
 
 
 --create game instance
-myGame = twenty48()
+--myGame = twenty48()
+myGame = ticTacToe()
 
 
 --create instance for AI and assign net,game
 myAI = qLearner(myGame, myNet)
 --myAI = bagLearner(myGame)
 
---training parameters
---myAI.training = hum
-
 --train learner
 myAI:train()
 
---play game
-torch.save('./saves/qLearner.ai', myAI)
+--save ai and play game
+torch.save('./saves/qLearner_ticTacToe.ai', myAI)
 myGame.draw = true
 myGame:play(com)

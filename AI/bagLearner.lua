@@ -16,8 +16,8 @@ require 'torch'
 require 'nn'
 
 -- require classes
-require 'AI'
-require 'qLearner'
+require 'AI/AI'
+require 'AI/qLearner'
 
 -- declare boostLearner class
 local boostLearner, parent = torch.class('bagLearner', 'AI')

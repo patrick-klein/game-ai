@@ -9,22 +9,28 @@
 require 'torch'
 
 --require classes
-require 'qLearner'
-require 'twenty48'
+require 'AI/qLearner'
+require 'games/twenty48'
+require 'games/ticTacToe'
 
 --globals
 com = 1
 hum = 2
 
 --create game instance
-myGame = twenty48()
+--myGame = twenty48()
+myGame = ticTacToe()
+
+myNet = nn.Sequential()
+myNet:add(nn.Linear(9,32))
+myNet:add(nn.ReLU())
+myNet:add(nn.Linear(32,9))
+myAI = qLearner(myGame, myNet)
 
 --quick way to choose human or AI player
 if false then
-	myGame:play(hum)
+	myGame:play(hum,com)
 else
-	myNet = torch.load('./saves/myNetBest_2048.dat_archive')     --option to load from file
-	myAI = qLearner(myGame, myNet)
 	myGame.draw = true
-	myGame:play(com)
+	myGame:play(com,com)
 end

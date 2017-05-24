@@ -1,3 +1,21 @@
+--[[
+
+	Class Methods
+    __init()
+		play(player)
+		test()
+		generateBoard()
+		getNewRandTileVal()
+		updateBoard(action)
+		insertValue()
+		playerTurn()
+    comTurn()
+    getMoveStringFromIndex(index)
+    getMoveIndexFromString(string)
+    gameOver()
+    drawBoard()
+
+]]
 
 -- require libraries
 require 'torch'
@@ -5,8 +23,8 @@ require 'nn'
 require 'io'
 
 -- require classes
-require 'AI'
-require 'game'
+require 'games/game'
+require 'AI/AI'
 
 -- create twenty48
 local twenty48, parent = torch.class('twenty48', 'game')
@@ -20,12 +38,16 @@ function twenty48:__init()
 	self.newHighScore = 1
 	self.gameOverScore = -1
 
+  self.name = '2048'
+
+  self.draw = nil
+
+  self.maxScore = 4
+
 	--needed for AI to function
 	self.numInputs = 16
 	self.numOutputs = 4
-
-	--will eventually be used by AI class for testing
-	--self.gameType = 'single-player'
+  self.numPlayers = 1
 
 end
 
@@ -111,6 +133,16 @@ function twenty48:play(player)
 		self.turn = self.turn+1
 	end
 end
+
+
+--public method for running trials on AI
+function twenty48:test()
+	self.testmode = true
+	score = self:play(com)
+	self.testmode = false
+	return score
+end
+
 
 --private method, adds random values to initial board
 function twenty48:generateBoard()
