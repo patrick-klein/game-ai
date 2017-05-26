@@ -29,6 +29,7 @@ function AI:__init(game)
 	self.game.AI = self				--turtles all the way down
 
 	-- memory initialization
+  -- required since all reinforcement learners are based on q-learning
 	self.memory = {}
 	self.memIndex = 0
 
@@ -48,4 +49,8 @@ end
 --public shorthand for forward pass model
 function AI:process(input)
 	assert(false,'AI:process() method not implemented!')
+end
+
+function AI:save()
+  assert(false,'AI:save() method not implemented!')
 end

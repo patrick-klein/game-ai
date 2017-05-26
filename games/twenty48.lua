@@ -42,7 +42,7 @@ function twenty48:__init()
 
   self.draw = nil
 
-  self.maxScore = 4
+  self.maxScore = 12
 
 	--needed for AI to function
 	self.numInputs = 16
@@ -126,7 +126,8 @@ function twenty48:play(player)
 				print(self.turn+1)
 				print(highScore)
 			end
-			return highScore
+			--return highScore
+      return torch.log(highScore)/torch.log(2)
 		end
 
 		--increment turn counter
@@ -208,7 +209,8 @@ function twenty48:updateBoard(action)
 				-- if next non-zero block is same, merge (unless already merged)
 				if newState[rowUphill][col]==newState[row][col] and newState[row][col]~=0 and not ignoreMerge then
 					newState[row][col] = newState[row][col]*2
-					self.mergeSum = self.mergeSum + torch.log1p(newState[row][col])/torch.log(2)/11
+					--self.mergeSum = self.mergeSum + torch.log1p(newState[row][col])/torch.log(2)/11
+          self.mergeSum = self.mergeSum + newState[row][col]/2048
 					newState[rowUphill][col] = 0
 					ignoreMerge = true
 					self.didMerge = true
@@ -312,9 +314,16 @@ function twenty48:comTurn()
 
 	--check if moves are valid, return if true
 	for i = 1,4 do
-		action = self:getMoveStringFromIndex(actionList[i])
-       	isValidMove = not torch.all(torch.eq(self.state, self:updateBoard(action)))
-       	if isValidMove then return action end
+    actionIndex = actionList[i]
+		actionString = self:getMoveStringFromIndex(actionIndex)
+       	isValidMove = not torch.all(torch.eq(self.state, self:updateBoard(actionString)))
+       	if isValidMove then
+          return actionString
+        else
+          -- penalize incorrect inputs
+          self.AI.memIndex = self.AI.memIndex + 1
+    			self.AI.memory[self.AI.memIndex] = {torch.log1p(self.state:view(16)),torch.log1p(self.state:view(16)), actionIndex, -1, false}
+        end
     end
 end
 

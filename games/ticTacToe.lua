@@ -53,11 +53,11 @@ function ticTacToe:__init()
   -- set scores
   self.winScore     = 1
   self.loseScore    = -1
-  self.invalidScore = 0
+  self.invalidScore = -1
   self.tieScore     = 0
   self.noScore      = 0
 
-  self.name = 'Tic Tac Toe'
+  self.name = 'TicTacToe'
 
 	self.numInputs   = 9
 	self.numOutputs  = 9
@@ -98,7 +98,7 @@ function ticTacToe:play(p1,p2)
 	self.oWin = false
 	self.tie = false
 
-  self.draw = self.draw or p1==hum
+  self.draw = self.draw or (p1==hum or p2==hum)
 	if self.draw then self:drawBoard() end
 
 	self.turn = 1
@@ -200,7 +200,7 @@ function ticTacToe:comTurn(cTurn)
 	--local temp = (self.isChallenge or self.isHum) and 100 or 1
 	--local eps = (self.isChallenge or self.isHum) and 0 or self.AI.eps
 
-	local temp = 1
+	local temp = 10
 	local eps = self.AI.eps or 0
 
   --double repeat loops replicate continue/break logic

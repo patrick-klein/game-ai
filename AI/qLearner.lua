@@ -8,11 +8,12 @@
 		__init(net, game)
 		train()
 		qLearn()
-		optim(batchInputs,batchTargets,actionVals)
+		optimizeNet(batchInputs,batchTargets,actionVals)
 		selfEvaluate()
     drawBars(score,divStep,maxScore)
 		updateConstants()
     process(input)
+    save
 
 ]]
 
@@ -48,17 +49,20 @@ function qLearner:__init(game, net)
 	--flags for display/backups
 	--backup and verbose aren't really implemented well at this point
 	self.profile = false
-	self.backup = true
+	self.backup = false
 	self.verbose = true
 
 	-- training parameters (look up Deep Mind paper for explanations)
 	self.numLoopsToFinish = 1e6
 	self.numLoopsForLinear = 1e5
-	self.firstLoop = 1
+	self.iteration = 1
 	self.targetNetworkUpdateDelay = 1e3
-	self.replayStartSize = 1e4
-	self.replaySize = 1e5
-	self.batchSize = 128
+	self.replayStartSize = 1e5
+	self.replaySize = 1e6
+	self.batchSize = 2048
+
+  self.loadMemory = false
+  self.saveMemory = false
 
 	-- eps-greedy value
 	self.eps_initial 		= 1.0
@@ -67,7 +71,7 @@ function qLearner:__init(game, net)
 	self.eps						= self.eps_initial
 
 	-- future reward discount
-	self.gamma_initial 	= 0.01
+	self.gamma_initial 	= 0
 	self.gamma_final 		= 0.50
 	self.gamma_delta		= self.gamma_final-self.gamma_initial
 	self.gamma 					= self.gamma_initial
@@ -93,15 +97,16 @@ function qLearner:train()
 	local avgQ          = 0
 	local avgQCount     = 0
 
+  local firstLoop = true
+
 	--new random seed
 	torch.seed()
 
 	--loop through episodes (playing games to increase memory, then train over memories)
-	for loopVar = self.firstLoop,self.numLoopsToFinish do
-		self.loopCount = loopVar
+  while self.iteration <= self.numLoopsToFinish do
 
 		--update paramaters
-		if loopVar < self.numLoopsForLinear then
+		if self.iteration < self.numLoopsForLinear then
 			self:updateConstants()
 		end
 
@@ -113,8 +118,8 @@ function qLearner:train()
 
 		--option to load memory dump (contains intialized memories from prior calls)
 		--used during testing since it can take a while to generate
-		if false and loopVar==1 then
-			self.memory = torch.load('./saves/memoryDump.dat')
+		if self.loadMemory and firstLoop then
+			self.memory = torch.load('./saves/memoryDump_'..self.game.name..'.dat')
 			self.memIndex = self.replayStartSize
 		end
 
@@ -140,8 +145,8 @@ function qLearner:train()
 		playTime = sys.toc()
 
 		--option to save memory dump
-		if true and loopVar==1 then
-			torch.save('./saves/memoryDump.dat', self.memory)
+		if self.saveMemory and firstLoop then
+			torch.save('./saves/memoryDump_'..self.game.name..'.dat', self.memory)
 		end
 
 		--fill testSet with random values in dataset
@@ -152,11 +157,11 @@ function qLearner:train()
 		end
 
 		--reset targetNet to enforce off-policy learning (look up Deep Mind paper)
-		if loopVar%self.targetNetworkUpdateDelay==0 then
+		if self.iteration%self.targetNetworkUpdateDelay==0 then
 			self.targetNet = self.net:clone()
 			if self.verbose then
-        --io.write('\n')
-				--print('Updating target network.')
+        io.write('\n')
+				print('Updating target network.')
 			end
 		end
 
@@ -170,11 +175,13 @@ function qLearner:train()
 		accTime = accTime+playTime+learnTime
 
     --display performance occasionally
-    if (self.verbose or self.backup) and (accTime>20 or loopVar==self.firstLoop) then
+    if (self.verbose or self.backup) and (accTime>20 or firstLoop) then
 
       --backup twice (in event that save is corrupted from interrupt)
-			torch.save('./saves/myNet_2048.dat', self.net)
-      torch.save('./saves/myNet_2048.dat_bak', self.net)
+      if self.backup then
+        torch.save('./saves/'..self.game.name..'.net', self.net)
+        torch.save('./saves/'..self.game.name..'-backup.net', self.net)
+      end
 
 			--test performance against trials
 			sys.tic()
@@ -183,9 +190,11 @@ function qLearner:train()
 
 			--save another copy if new high score
 			if score>=bestScore then
-				torch.save('./saves/myNetBest_2048.dat', self.net)
-				torch.save('./saves/myNetBest_2048.dat_bak', self.net)
 				bestScore = score
+        if self.backup then
+          torch.save('./saves/'..self.game.name..'_best.net', self.net)
+          torch.save('./saves/'..self.game.name..'_best-backup.net', self.net)
+        end
 			else
 				--reload best model if performance declined
 				--self.net = torch.load('./saves/myNetBest_2048.dat')
@@ -199,16 +208,19 @@ function qLearner:train()
 			--display iteration, score, and running average
 			--annotate with * for new bestScore, or - for declining average
 
-      if false then
-  			io.write('\n')
-  			io.write('\tIteration\t')     io.write(loopVar)        io.write('\n')
-  			if score==bestScore then      io.write('*') end
-  			io.write('\tCurrent Score\t')	io.write(score)          io.write('\n')
-  			if avgScore<prevAvgScore then io.write('-') end
-  			io.write('\tAverage Score\t')	io.write(avgScore)       io.write('\n')
-  			io.write('\tAverage Q\t')	    io.write(avgQ/avgQCount) io.write('\n')
-      else
-        self:drawBars(score)
+      if self.verbose then
+        if false then
+    			io.write('\n')
+    			io.write('\tIteration\t')     io.write(self.iteration)        io.write('\n')
+    			if score==bestScore then      io.write('*') end
+    			io.write('\tCurrent Score\t')	io.write(score)          io.write('\n')
+    			if avgScore<prevAvgScore then io.write('-') end
+    			io.write('\tAverage Score\t')	io.write(avgScore)       io.write('\n')
+    			io.write('\tAverage Q\t')	    io.write(avgQ/avgQCount) io.write('\n')
+        else
+          self:drawBars(score)
+          --print(self.iteration)
+        end
       end
 
 			--update averages
@@ -228,6 +240,8 @@ function qLearner:train()
 			--reset timer
 			accTime = 0
 		end
+    if firstLoop then firstLoop = false end
+    self.iteration = self.iteration+1
 	end
 	self.net:evaluate()
 end
@@ -240,6 +254,7 @@ function qLearner:qLearn()
 	--create tensors to hold inputs and targets for optimization function
 	local batchInputs = torch.Tensor(self.batchSize,self.game.numInputs)
 	local batchTargets = torch.Tensor(self.batchSize,self.game.numOutputs)
+  local actionVals = torch.Tensor(self.batchSize)
 
 	--initialize average Q value
 	local avgQ = 0
@@ -274,26 +289,28 @@ function qLearner:qLearn()
 		local output = self:process(origState)
 
 		--set target to current Q
-		local target = 0.9*(output:clone())
-		--local target = torch.Tensor(self.game.numOutputs):zero()
+		--local target = output:clone()
+		local target = torch.Tensor(self.game.numOutputs):zero()
 
 		--adjust value of current action
 		--clamp delta to +1/-1
-		--if torch.abs(y-output[action])<1 or terminal then
+    local yDelta = y-output[action]
+		if torch.abs(yDelta)<1 or terminal then
 			target[action] = y
-		--else
+		else
 			----is there a better way to check sign(y-output[action])?
-			--target[action] = output[action]+(y-output[action])/torch.abs(y-output[action])
-		--end
+			target[action] = output[action]+yDelta/torch.abs(yDelta)
+		end
 
 		--package input and targets for batch optimization
 		batchInputs[move] = origState
 		batchTargets[move] = target
+    actionVals[move] = action
 
   end
 
 	--batch optimization function
-	self:optim(batchInputs,batchTargets)
+	self:optimizeNet(batchInputs,batchTargets,actionVals)
 
 	--return average Q value
 	return avgQ
@@ -301,60 +318,59 @@ end
 
 
 --private method for batch back propagation and parameter optimization, only one iteration
-function qLearner:optim(batchInputs,batchTargets)
+function qLearner:optimizeNet(batchInputs,batchTargets,actionVals)
 
 	--set net to training
 	--self.net:training()
 
 	--set training settings
 	--local config = {}
-	local config = {learningRate = 0.0025}
+	local config = {learningRate = 0.1}
 	local criterion = nn.MSECriterion()
-	local params,gradParams = self.net:getParameters()
+  --local criterion = nn.AbsCriterion()
 
-	--create function that returns loss,gradParams for optimization
-	local function feval(params)
-		gradParams:zero()
-		local outputs = self.net:forward(batchInputs)
-		local loss = criterion:forward(outputs, batchTargets)
-		local dloss_doutput = criterion:backward(outputs,batchTargets)
-		--need to find way to restrict dloss_doutput to one output
-		self.net:backward(batchInputs,dloss_doutput)
-		return loss,gradParams
-	end
+  for epoch = 1,100 do
 
-	--apply optimization method
-	--optim.sgd(feval,params,config)
-	--optim.adamax(feval,params,config)
-	optim.rmsprop(feval,params,config)
+  	local params,gradParams = self.net:getParameters()
+  	--create function that returns loss,gradParams for optimization
+  	local function feval(params)
+  		gradParams:zero()
+  		local outputs = self.net:forward(batchInputs)
+  		local loss = criterion:forward(outputs, batchTargets)
+  		local dloss_doutput = criterion:backward(outputs,batchTargets)
+  		--need to find way to restrict dloss_doutput to one output
+      local dloss_mask = torch.Tensor(self.batchSize, self.game.numOutputs):zero()
+      for i = 1,self.batchSize do
+        dloss_mask[i][actionVals[i]] = 1
+      end
+      dloss_doutput:cmul(dloss_mask)
+  		self.net:backward(batchInputs,dloss_doutput)
+  		return loss,gradParams
+  	end
+
+  	--apply optimization method
+  	optim.sgd(feval,params,config)
+  	--optim.adamax(feval,params,config)
+  	--optim.rmsprop(feval,params,config)
+
+  end
 
 end
 
 -- private method for running test trials
+-- should probably find a way to move this to specific game class
 function qLearner:selfEvaluate()
 
-  if self.game.name == '2048' then
-  	--intialize locals
-  	local numTrials = 20
-  	local runningTotal = 0
-  	-- random average high score is 67.392, based on 1000 trials
-  	local randAvg = 67.392
-  	--set net to evaluate
-  	self.net:evaluate()
-  	--find total score across trials
-  	for myEval=1,numTrials do
-  		runningTotal = runningTotal+self.game:test()
-  	end
-  	--return ratio of AI avg to randAvg
-  	return (runningTotal/numTrials)/randAvg
+  local numTrials = 1e2
+  local runningTotal = 0
+  for myEval=1,numTrials do
+    runningTotal = runningTotal + self.game:test()
+  end
 
-  elseif self.game.name == 'Tic Tac Toe' then
-    local numTrials = 1e2
-    local runningTotal = 0
-    rWin = 0 rLose = 0
-    for myEval=1,numTrials do
-      runningTotal = runningTotal + self.game:test()
-    end
+  if self.game.name == '2048' then
+    return runningTotal/numTrials
+
+  elseif self.game.name == 'TicTacToe' then
     return (1/2)*(1+runningTotal/numTrials)
 
   end
@@ -384,12 +400,19 @@ end
 -- private method run once every train loop
 function qLearner:updateConstants()
 	-- update learning constants
-	self.eps = self.eps_initial+self.eps_delta*(self.loopCount/self.numLoopsForLinear)
-	self.gamma = self.gamma_initial+self.gamma_delta*(self.loopCount/self.numLoopsForLinear)
+  self.eps_delta = self.eps_final-self.eps_initial
+	self.eps = self.eps_initial+self.eps_delta*(self.iteration/self.numLoopsForLinear)
+
+  self.gamma_delta = self.gamma_final-self.gamma_initial
+  self.gamma = self.gamma_initial+self.gamma_delta*(self.iteration/self.numLoopsForLinear)
 end
 
 
 --public shorthand for forward pass model
 function qLearner:process(input)
 	return self.net:forward(input)
+end
+
+function qLearner:save()
+  torch.save('saves/qLearner_'..self.game.name..'.ai',self)
 end

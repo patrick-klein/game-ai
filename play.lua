@@ -10,6 +10,7 @@ require 'torch'
 
 --require classes
 require 'AI/qLearner'
+require 'AI/bagLearner'
 require 'games/twenty48'
 require 'games/ticTacToe'
 
@@ -21,15 +22,12 @@ hum = 2
 --myGame = twenty48()
 myGame = ticTacToe()
 
-myNet = nn.Sequential()
-myNet:add(nn.Linear(9,32))
-myNet:add(nn.ReLU())
-myNet:add(nn.Linear(32,9))
-myAI = qLearner(myGame, myNet)
+myAI = torch.load('saves/bagLearner_TicTacToe.ai')
+myGame.AI = myAI
 
 --quick way to choose human or AI player
-if false then
-	myGame:play(hum,com)
+if true then
+	myGame:play(com,hum)
 else
 	myGame.draw = true
 	myGame:play(com,com)

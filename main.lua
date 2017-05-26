@@ -26,27 +26,31 @@ if false then
 	print(myNet)
 else
 	myNet = nn.Sequential()
-	myNet:add(nn.Linear(9,128))
+	myNet:add(nn.Linear(16,1024))
 	myNet:add(nn.ReLU())
-	--myNet:add(nn.Linear(256,256))
-	--myNet:add(nn.ReLU())
-	myNet:add(nn.Linear(128,9))
+	myNet:add(nn.Linear(1024,1024))
+	myNet:add(nn.ReLU())
+	myNet:add(nn.Linear(1024,4))
 end
 
 
 --create game instance
---myGame = twenty48()
-myGame = ticTacToe()
+myGame = twenty48()
+--myGame = ticTacToe()
 
 
 --create instance for AI and assign net,game
 myAI = qLearner(myGame, myNet)
+myAI.loadMemory = true
 --myAI = bagLearner(myGame)
 
 --train learner
 myAI:train()
 
+--Should add a save method to AI, to strip away unneeded arrays from save file
+--should create different output/save folders for each game
+
 --save ai and play game
-torch.save('./saves/qLearner_ticTacToe.ai', myAI)
+myAI:save()
 myGame.draw = true
-myGame:play(com)
+myGame:play(com,com)
