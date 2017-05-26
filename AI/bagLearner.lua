@@ -21,7 +21,7 @@ require 'AI/AI'
 require 'AI/qLearner'
 
 -- declare boostLearner class
-local boostLearner, parent = torch.class('bagLearner', 'AI')
+local bagLearner, parent = torch.class('bagLearner', 'AI')
 
 
 -- initialization function
