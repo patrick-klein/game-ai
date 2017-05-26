@@ -40,9 +40,9 @@ myGame = twenty48()
 
 
 --create instance for AI and assign net,game
-myAI = qLearner(myGame, myNet)
-myAI.loadMemory = true
---myAI = bagLearner(myGame)
+--myAI = qLearner(myGame, myNet)
+--myAI.loadMemory = true
+myAI = bagLearner(myGame)
 
 --train learner
 myAI:train()

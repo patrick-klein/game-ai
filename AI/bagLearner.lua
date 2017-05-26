@@ -7,7 +7,8 @@
 		train()
     process(input)
     selfEvaluate()
-    save
+    save()
+    learnerEvaluate()
 
 ]]
 
@@ -31,6 +32,9 @@ function bagLearner:__init(game)
   self.numWeakLearners = 3
   self.trainedLearners = 0
   self.learnerPool = {}
+
+  self.learnerWeights = {}
+
 end
 
 
@@ -41,15 +45,12 @@ function bagLearner:train()
     io.write('Training learner #')	io.write(t) io.write('...\n')
 		weakLearner = self:createWeakLearner()
     weakLearner:train()
-    weakLearner.memory = {}
-    weakLearner.memIndex = 0
-    weakLearner.game = nil
     self.learnerPool[t] = weakLearner
     self.trainedLearners = self.trainedLearners + 1
+    self:learnerEvaluate()
     print(self:selfEvaluate())
 	end
 
-  --print(self:selfEvaluate())
   self:save()
 
 end
@@ -59,11 +60,11 @@ end
 function bagLearner:createWeakLearner()
 
   net = nn.Sequential()
-  net:add(nn.Linear(9,1024))
+  net:add(nn.Linear(16,1024))
+  net:add(nn.Sigmoid())
+  net:add(nn.Linear(1024,1024))
   net:add(nn.ReLU())
-  --net:add(nn.Linear(32,32))
-  --net:add(nn.ReLU())
-  net:add(nn.Linear(1024,9))
+  net:add(nn.Linear(1024,4))
 
   --do NOT assign self.game, need to create new instance
   weakLearner = qLearner(self.game.new(),net)
@@ -73,6 +74,7 @@ function bagLearner:createWeakLearner()
   weakLearner.loadMemory = false
   weakLearner.saveMemory = false
   --weakLearner.verbose = false
+
   weakLearner.numLoopsToFinish = 50
   --weakLearner.numLoopsForLinear = 50
   --weakLearner.targetNetworkUpdateDelay = 1e3
@@ -80,15 +82,11 @@ function bagLearner:createWeakLearner()
   --weakLearner.replaySize = 1e5
   --weakLearner.batchSize = 2048
 
-  -- eps-greedy value
   --weakLearner.eps_initial 	= 1
   --weakLearner.eps_final 		= 0.9
-
-  -- future reward discount
   --weakLearner.gamma_initial 	= 0
 	--weakLearner.gamma_final 		= 0.05
-
-  weakLearner:updateConstants()
+  --weakLearner:updateConstants()
 
   return weakLearner
 
@@ -101,7 +99,7 @@ function bagLearner:process(input)
   -- average all learner outputs
   vote = torch.Tensor(self.game.numOutputs):zero()
   for t=1,self.trainedLearners do
-    vote = vote + self.learnerPool[t]:process(input)/self.trainedLearners
+    vote = vote + self.learnerWeights[t]*self.learnerPool[t]:process(input)
 	end
   return vote
 end
@@ -124,11 +122,34 @@ function bagLearner:selfEvaluate()
   end
 end
 
+
+function bagLearner:learnerEvaluate()
+
+  for t = 1,self.trainedLearners do
+    torch.seed(42)
+    local numTrials = 1e2
+    local runningTotal = 0
+    for myEval=1,numTrials do
+      runningTotal = runningTotal + self.learnerPool[t].game:test()
+    end
+    if self.game.name == '2048' then
+      score = runningTotal/numTrials
+    elseif self.game.name == 'TicTacToe' then
+      score = (1/2)*(1+runningTotal/numTrials)
+    end
+    self.learnerWeights[t] = score
+  end
+  torch.seed()
+
+  self.learnerWeights = self.learnerWeights/self.learnerWeights:sum()
+
+end
+
 function bagLearner:save()
-  --for t = 1,self.trainedLearners do
-  --  self.learnerPool[t].memory = {}
-  --  self.learnerPool[t].memIndex = 0
-  --  self.learnerPool[t].game = nil
-  --end
+  for t = 1,self.trainedLearners do
+    self.learnerPool[t].memory = {}
+    self.learnerPool[t].memIndex = 0
+    self.learnerPool[t].game = nil
+  end
   torch.save('saves/bagLearner_'..self.game.name..'.ai',self)
 end
