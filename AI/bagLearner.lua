@@ -26,31 +26,41 @@ local bagLearner, parent = torch.class('bagLearner', 'AI')
 
 -- initialization function
 function bagLearner:__init(game)
-  parent.__init(self,game)
+  parent.__init(self, game)
 
-	-- number of weak learners to aggregate
+  --number of weak learners to aggregate
   self.numWeakLearners = 30
+
+  --variable initializations
   self.trainedLearners = 0
   self.learnerPool = {}
-
   self.learnerWeights = torch.Tensor(self.numWeakLearners):zero()
 
 end
 
 
--- public method for training neural network
+--method for training learners in AI module
 function bagLearner:train()
 
-	for t=1,self.numWeakLearners do
-    io.write('Training learner #')	io.write(t) io.write('...\n')
-		weakLearner = self:createWeakLearner()
+  --create and train learners
+  for t = 1, self.numWeakLearners do
+    io.write('Training learner #') io.write(t) io.write('...\n')
+    weakLearner = self:createWeakLearner()
     weakLearner:train()
+
+    --need to free up memory, esp. if using many learners
+    weakLearner.memory = {}
+    weakLearner.memIndex = 0
+
+    --add learner to pool
     self.learnerPool[t] = weakLearner
     self.trainedLearners = self.trainedLearners + 1
-    self:learnerEvaluate()
+
+    --get a metric of this learners performance, weight accordingly
+    self:learnerEvaluate(t)
     print(self.learnerWeights)
     print(self:selfEvaluate())
-	end
+  end
 
 end
 
@@ -59,16 +69,16 @@ end
 function bagLearner:createWeakLearner()
 
   net = nn.Sequential()
-  net:add(nn.Linear(9,1024))
+  net:add(nn.Linear(9, 1024))
   net:add(nn.ReLU())
   net:add(nn.Tanh())
   --net:add(nn.Sigmoid())
   --net:add(nn.Linear(256,256))
   --net:add(nn.ReLU())
-  net:add(nn.Linear(1024,9))
+  net:add(nn.Linear(1024, 9))
 
   --do NOT assign self.game, need to create new instance
-  weakLearner = qLearner(self.game.new(),net)
+  weakLearner = qLearner(self.game.new(), net)
 
   --weak learner params
   weakLearner.backup = false
@@ -86,7 +96,7 @@ function bagLearner:createWeakLearner()
   --weakLearner.eps_initial 	= 1
   --weakLearner.eps_final 		= 0.9
   --weakLearner.gamma_initial 	= 0
-	--weakLearner.gamma_final 		= 0.05
+  --weakLearner.gamma_final 		= 0.05
   --weakLearner:updateConstants()
 
   return weakLearner
@@ -99,9 +109,9 @@ function bagLearner:process(input)
 
   -- average all learner outputs
   vote = torch.Tensor(self.game.numOutputs):zero()
-  for t=1,self.trainedLearners do
-    vote = vote + self.learnerWeights[t]*self.learnerPool[t]:process(input)
-	end
+  for t = 1, self.trainedLearners do
+    vote = vote + self.learnerWeights[t] * self.learnerPool[t]:process(input)
+  end
   return vote
 end
 
@@ -111,16 +121,16 @@ function bagLearner:selfEvaluate()
   local numTrials = 1e2
   local runningTotal = 0
   torch.manualSeed(42)
-  for myEval=1,numTrials do
+  for myEval = 1, numTrials do
     runningTotal = runningTotal + self.game:test()
   end
   torch.seed()
 
   if self.game.name == '2048' then
-    return runningTotal/numTrials
+    return runningTotal / numTrials
 
   elseif self.game.name == 'TicTacToe' then
-    return (1/2)*(1+runningTotal/numTrials)
+    return (1 / 2) * (1 + runningTotal / numTrials)
 
   end
 end
@@ -128,31 +138,32 @@ end
 
 function bagLearner:learnerEvaluate()
 
-  for t = 1,self.trainedLearners do
+  ----for increased efficency, only evaluate one learner
+  ----  need a way to re-weight accordingly
+
+  for t = 1, self.trainedLearners do
     torch.manualSeed(42)
     local numTrials = 1e2
     local runningTotal = 0
-    for myEval=1,numTrials do
+    for myEval = 1, numTrials do
       runningTotal = runningTotal + self.learnerPool[t].game:test()
     end
     if self.game.name == '2048' then
-      score = runningTotal/numTrials
+      score = runningTotal / numTrials
     elseif self.game.name == 'TicTacToe' then
-      score = (1/2)*(1+runningTotal/numTrials)
+      score = (1 / 2) * (1 + runningTotal / numTrials)
     end
     self.learnerWeights[t] = score
   end
   torch.seed()
 
-  self.learnerWeights = self.learnerWeights/self.learnerWeights:sum()
+  self.learnerWeights = self.learnerWeights / self.learnerWeights:sum()
 
 end
 
 function bagLearner:save()
-  for t = 1,self.trainedLearners do
-    self.learnerPool[t].memory = {}
-    self.learnerPool[t].memIndex = 0
+  for t = 1, self.trainedLearners do
     self.learnerPool[t].game = nil
   end
-  torch.save('saves/bagLearner_'..self.game.name..'.ai',self)
+  torch.save('saves/bagLearner_'..self.game.name..'.ai', self)
 end

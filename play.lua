@@ -27,8 +27,8 @@ myGame.AI = myAI
 
 --quick way to choose human or AI player
 if false then
-	myGame:play(com,hum)
+  myGame:play(com, hum)
 else
-	myGame.draw = true
-	myGame:play(com)
+  myGame.draw = true
+  myGame:play(com)
 end

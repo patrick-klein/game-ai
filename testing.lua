@@ -17,11 +17,11 @@ hum = 2
 
 --create net
 myNet = nn.Sequential()
-myNet:add(nn.Linear(9,32))
+myNet:add(nn.Linear(9, 32))
 myNet:add(nn.ReLU())
 --myNet:add(nn.Linear(24,24))
 --myNet:add(nn.ReLU())
-myNet:add(nn.Linear(32,9))
+myNet:add(nn.Linear(32, 9))
 
 --create game instance
 --myGame = twenty48()
@@ -30,7 +30,7 @@ myGame = ticTacToe()
 
 --create instance for learner and assign net,game
 --myAI = bagLearner(myGame)
-myAI = qLearner(myGame,myNet)
+myAI = qLearner(myGame, myNet)
 myAI.
 
 --train AI

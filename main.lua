@@ -25,15 +25,15 @@ hum = 2
 
 --quickly change between new and archived networks
 if false then
-	myNet = torch.load('./saves/myNetBest_2048.dat_archive')
-	print(myNet)
+  myNet = torch.load('./saves/myNetBest_2048.dat_archive')
+  print(myNet)
 else
-	myNet = nn.Sequential()
-	myNet:add(nn.Linear(16,1024))
-	myNet:add(nn.ReLU())
-	myNet:add(nn.Linear(1024,1024))
-	myNet:add(nn.ReLU())
-	myNet:add(nn.Linear(1024,4))
+  myNet = nn.Sequential()
+  myNet:add(nn.Linear(16, 1024))
+  myNet:add(nn.ReLU())
+  myNet:add(nn.Linear(1024, 1024))
+  myNet:add(nn.ReLU())
+  myNet:add(nn.Linear(1024, 4))
 end
 
 
@@ -55,4 +55,4 @@ myAI:train()
 --save ai and play game
 myAI:save()
 myGame.draw = true
-myGame:play(com,com)
+myGame:play(com, com)
