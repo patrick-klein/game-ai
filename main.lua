@@ -50,7 +50,6 @@ myAI = bagLearner(myGame)
 --train learner
 myAI:train()
 
---Should add a save method to AI, to strip away unneeded arrays from save file
 --should create different output/save folders for each game
 
 --save ai and play game
