@@ -1,4 +1,5 @@
 --[[
+  2 player implementation of Tic Tac Toe
 
   Class Methods
     __init()

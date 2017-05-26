@@ -1,17 +1,15 @@
 
 --[[
+  This is a learner that uses a DQN
 
-	Inherited Methods
-		process(input)
-
-	Class Methods
-		__init(net, game)
-		train()
-		qLearn()
-		optimizeNet(batchInputs,batchTargets,actionVals)
-		selfEvaluate()
+  Class Methods
+    __init(net, game)
+    train()
+    qLearn()
+    optimizeNet(batchInputs,batchTargets,actionVals)
+    selfEvaluate()
     drawBars(score,divStep,maxScore)
-		updateConstants()
+    updateConstants()
     process(input)
     save
 

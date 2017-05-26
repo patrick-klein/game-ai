@@ -1,9 +1,9 @@
 --[[
-	Parent class for all games
+  Parent class for all games
 
-	Public Methods
-		play(player)
-		test()
+  Public Methods
+    play(player)
+    test()
 
 ]]
 

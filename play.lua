@@ -1,8 +1,9 @@
 
 
 --[[
-	This script creates an instance of the game
-	Using the if statement, either a human or AI will play the game
+  This script creates an instance of the game
+  Using the if statement, either a human or AI will play the game
+  
 ]]
 
 --require libraries

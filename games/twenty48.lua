@@ -1,14 +1,15 @@
 --[[
+  Implementation of the mobile game 2048
 
-	Class Methods
+  Class Methods
     __init()
-		play(player)
-		test()
-		generateBoard()
-		getNewRandTileVal()
-		updateBoard(action)
-		insertValue()
-		playerTurn()
+    play(player)
+    test()
+    generateBoard()
+    getNewRandTileVal()
+    updateBoard(action)
+    insertValue()
+    playerTurn()
     comTurn()
     getMoveStringFromIndex(index)
     getMoveIndexFromString(string)

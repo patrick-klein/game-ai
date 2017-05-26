@@ -1,4 +1,8 @@
 
+--[[
+  Script that is used for one-off testing purposes
+
+]]
 
 --require libraries
 require 'torch'

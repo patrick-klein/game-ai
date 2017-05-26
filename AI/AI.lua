@@ -1,6 +1,5 @@
 
 --[[
-
   This is the parent class for all AI reinforcement learners
 
   Public Methods
@@ -8,7 +7,6 @@
     train()
     selfEvaluate()
     process(input)
-
 ]]
 
 -- require libraries

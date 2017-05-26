@@ -1,10 +1,10 @@
+
 --[[
+  This is a learner that will use bagging of weak learners
 
-	This is a learner that will use bagging of weak learners
-
-	Class Methods
-		__init(net,game)
-		train()
+  Class Methods
+    __init(net, game)
+    train()
     process(input)
     selfEvaluate()
     learnerEvaluate()
