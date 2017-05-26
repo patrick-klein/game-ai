@@ -1,6 +1,9 @@
 --[[
 	Creates an instance of an AI learner, then trains it
 	Saves and plays a game when finished
+
+  To-Do / Considerations
+    Use two separate AI modules for 2-player games
 ]]
 
 
@@ -35,8 +38,8 @@ end
 
 
 --create game instance
-myGame = twenty48()
---myGame = ticTacToe()
+--myGame = twenty48()
+myGame = ticTacToe()
 
 
 --create instance for AI and assign net,game

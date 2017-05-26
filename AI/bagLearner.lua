@@ -7,8 +7,8 @@
 		train()
     process(input)
     selfEvaluate()
-    save()
     learnerEvaluate()
+    save()
 
 ]]
 
@@ -29,11 +29,11 @@ function bagLearner:__init(game)
   parent.__init(self,game)
 
 	-- number of weak learners to aggregate
-  self.numWeakLearners = 3
+  self.numWeakLearners = 30
   self.trainedLearners = 0
   self.learnerPool = {}
 
-  self.learnerWeights = {}
+  self.learnerWeights = torch.Tensor(self.numWeakLearners):zero()
 
 end
 
@@ -48,10 +48,9 @@ function bagLearner:train()
     self.learnerPool[t] = weakLearner
     self.trainedLearners = self.trainedLearners + 1
     self:learnerEvaluate()
+    print(self.learnerWeights)
     print(self:selfEvaluate())
 	end
-
-  self:save()
 
 end
 
@@ -60,11 +59,13 @@ end
 function bagLearner:createWeakLearner()
 
   net = nn.Sequential()
-  net:add(nn.Linear(16,1024))
-  net:add(nn.Sigmoid())
-  net:add(nn.Linear(1024,1024))
+  net:add(nn.Linear(9,1024))
   net:add(nn.ReLU())
-  net:add(nn.Linear(1024,4))
+  net:add(nn.Tanh())
+  --net:add(nn.Sigmoid())
+  --net:add(nn.Linear(256,256))
+  --net:add(nn.ReLU())
+  net:add(nn.Linear(1024,9))
 
   --do NOT assign self.game, need to create new instance
   weakLearner = qLearner(self.game.new(),net)
@@ -75,8 +76,8 @@ function bagLearner:createWeakLearner()
   weakLearner.saveMemory = false
   --weakLearner.verbose = false
 
-  weakLearner.numLoopsToFinish = 50
-  --weakLearner.numLoopsForLinear = 50
+  weakLearner.numLoopsToFinish = 100
+  weakLearner.numLoopsForLinear = 100
   --weakLearner.targetNetworkUpdateDelay = 1e3
   --weakLearner.replayStartSize = 1e4
   --weakLearner.replaySize = 1e5
@@ -109,9 +110,11 @@ function bagLearner:selfEvaluate()
 
   local numTrials = 1e2
   local runningTotal = 0
+  torch.manualSeed(42)
   for myEval=1,numTrials do
     runningTotal = runningTotal + self.game:test()
   end
+  torch.seed()
 
   if self.game.name == '2048' then
     return runningTotal/numTrials
@@ -126,7 +129,7 @@ end
 function bagLearner:learnerEvaluate()
 
   for t = 1,self.trainedLearners do
-    torch.seed(42)
+    torch.manualSeed(42)
     local numTrials = 1e2
     local runningTotal = 0
     for myEval=1,numTrials do

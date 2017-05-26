@@ -243,7 +243,6 @@ function qLearner:train()
     if firstLoop then firstLoop = false end
     self.iteration = self.iteration+1
 	end
-	self:save()
 end
 
 
