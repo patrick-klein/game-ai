@@ -1,13 +1,13 @@
 
 --[[
 
-	This is the parent class for all AI reinforcement learners
+  This is the parent class for all AI reinforcement learners
 
-	Public Methods
-		__init(net,game)
-		train()
+  Public Methods
+    __init(net, game)
+    train()
     selfEvaluate()
-		process(input)
+    process(input)
 
 ]]
 
