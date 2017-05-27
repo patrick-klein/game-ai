@@ -114,7 +114,7 @@ function twenty48:play(player)
       actionIndex = self:getMoveIndexFromString(action)
       self.AI.memIndex = self.AI.memIndex + 1
       --it's a good idea to scale back the input logarithmically
-      self.AI.memory[self.AI.memIndex] = {torch.log1p(prevState), torch.log1p(memState), actionIndex, score, isTerminal}
+      self.AI.memory[self.AI.memIndex] = {torch.floor(torch.log1p(prevState) / torch.log(2)), torch.floor(torch.log1p(memState) / torch.log(2)), actionIndex, score, isTerminal}
       prevState = memState
     end
 
@@ -211,7 +211,7 @@ function twenty48:updateBoard(action)
         if newState[rowUphill][col] == newState[row][col] and newState[row][col] ~= 0 and not ignoreMerge then
           newState[row][col] = newState[row][col] * 2
           --self.mergeSum = self.mergeSum + torch.log1p(newState[row][col])/torch.log(2)/11
-          self.mergeSum = self.mergeSum + newState[row][col] / 2048
+          self.mergeSum = self.mergeSum + torch.floor(torch.log1p(newState[row][col]) / torch.log(2)) / 11
           newState[rowUphill][col] = 0
           ignoreMerge = true
           self.didMerge = true
@@ -323,7 +323,7 @@ function twenty48:comTurn()
     else
       -- penalize incorrect inputs
       self.AI.memIndex = self.AI.memIndex + 1
-      self.AI.memory[self.AI.memIndex] = {torch.log1p(self.state:view(16)), torch.log1p(self.state:view(16)), actionIndex, - 1, false}
+      self.AI.memory[self.AI.memIndex] = {torch.floor(torch.log1p(self.state:view(16)) / torch.log(2)), torch.floor(torch.log1p(self.state:view(16)) / torch.log(2)), actionIndex, - 1, false}
     end
   end
 end

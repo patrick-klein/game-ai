@@ -58,6 +58,7 @@ function qLearner:__init(game, net)
   self.replayStartSize = 1e5
   self.replaySize = 1e6
   self.batchSize = 2048
+  self.numTrainingEpochs = 50
 
   self.loadMemory = false
   self.saveMemory = false
@@ -147,13 +148,15 @@ function qLearner:train()
     end
 
     --fill testSet with random values in dataset
+    ----Consider picking memories with an equal distribution of -/0/+ rewards
     self.replay = {}
     randMems = wrapMemory and torch.randperm(self.replaySize) or torch.randperm(self.memIndex)
     for i = 1, self.batchSize do
       self.replay[i] = self.memory[randMems[i]]
     end
 
-    --reset targetNet to enforce off-policy learning (look up Deep Mind paper)
+    --delay updateing  targetNet to enforce off-policy learning
+    ----(look up Deep Mind paper)
     if self.iteration%self.targetNetworkUpdateDelay == 0 then
       self.targetNet = self.net:clone()
       if self.verbose then
@@ -284,19 +287,18 @@ function qLearner:qLearn()
     --calculate Q using current parameters
     local output = self:process(origState)
 
-    --set target to current Q
-    --local target = output:clone()
+    --create target vector
     local target = torch.Tensor(self.game.numOutputs):zero()
 
     --adjust value of current action
     --clamp delta to +1/-1
-    local yDelta = y - output[action]
-    if torch.abs(yDelta) < 1 or terminal then
-      target[action] = y
-    else
-      ----is there a better way to check sign(y-output[action])?
-      target[action] = output[action] + yDelta / torch.abs(yDelta)
-    end
+    --local yDelta = y - output[action]
+    --if torch.abs(yDelta) < 1 or terminal then
+    target[action] = y
+    --else
+    ----is there a better way to check sign(y-output[action])?
+    --target[action] = output[action] + yDelta / torch.abs(yDelta)
+    --end
 
     --package input and targets for batch optimization
     batchInputs[move] = origState
@@ -328,7 +330,7 @@ function qLearner:optimizeNet(batchInputs, batchTargets, actionVals)
   local criterion = nn.MSECriterion()
   --local criterion = nn.AbsCriterion()
 
-  for epoch = 1, 50 do
+  for epoch = 1, self.numTrainingEpochs do
 
     local params, gradParams = self.net:getParameters()
     --create function that returns loss,gradParams for optimization
@@ -377,7 +379,7 @@ end
 
 
 --method that prints a neat bar to visualize score
-function qLearner:drawBars(score, divStep, maxScore)
+function qLearner:drawBars(score)
 
   maxScore = self.game.maxScore
   divStep = maxScore / 4
