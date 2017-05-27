@@ -49,8 +49,8 @@ function bagLearner:train()
     weakLearner:train()
 
     --need to free up memory, esp. if using many learners
-    weakLearner.memory = {}
-    weakLearner.memIndex = 0
+    weakLearner.memory = nil
+    weakLearner.memIndex = nil
     collectgarbage()
 
     --add learner to pool
@@ -86,9 +86,9 @@ function bagLearner:createWeakLearner()
   weakLearner.saveMemory = false
   --weakLearner.verbose = false
 
-  weakLearner.numLoopsToFinish = 100
-  weakLearner.numLoopsForLinear = 100
-  --weakLearner.targetNetworkUpdateDelay = 1e3
+  weakLearner.numLoopsToFinish = 150
+  weakLearner.numLoopsForLinear = 150
+  weakLearner.targetNetworkUpdateDelay = 75
   --weakLearner.replayStartSize = 1e4
   --weakLearner.replaySize = 1e5
   --weakLearner.batchSize = 2048

@@ -38,8 +38,8 @@ end
 
 
 --create game instance
---myGame = twenty48()
-myGame = ticTacToe()
+myGame = twenty48()
+--myGame = ticTacToe()
 
 
 --create instance for AI and assign net,game

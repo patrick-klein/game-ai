@@ -157,7 +157,7 @@ function qLearner:train()
     if self.iteration%self.targetNetworkUpdateDelay == 0 then
       self.targetNet = self.net:clone()
       if self.verbose then
-        io.write('\n')
+        --io.write('\n')
         print('Updating target network.')
       end
     end
