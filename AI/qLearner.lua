@@ -65,13 +65,12 @@ function qLearner:__init(game, net)
   -- eps-greedy value
   self.eps_initial = 1.0
   self.eps_final = 0.1
-  self.eps_delta = self.eps_final - self.eps_initial
-  self.eps = self.eps_initial
 
   -- future reward discount
   self.gamma_initial = 0
   self.gamma_final = 0.50
-  self.gamma_delta = self.gamma_final - self.gamma_initial
+
+  self.eps = self.eps_initial
   self.gamma = self.gamma_initial
 
 end
@@ -323,10 +322,13 @@ function qLearner:optimizeNet(batchInputs, batchTargets, actionVals)
   --set training settings
   --local config = {}
   local config = {learningRate = 0.1}
+
+  --set criterion for loss function
+  ----Test criterion other than MSE.  "Error" is not Gaussian, breaks assumption
   local criterion = nn.MSECriterion()
   --local criterion = nn.AbsCriterion()
 
-  for epoch = 1, 100 do
+  for epoch = 1, 50 do
 
     local params, gradParams = self.net:getParameters()
     --create function that returns loss,gradParams for optimization
@@ -397,11 +399,11 @@ end
 -- private method run once every train loop
 function qLearner:updateConstants()
   -- update learning constants
-  self.eps_delta = self.eps_final - self.eps_initial
-  self.eps = self.eps_initial + self.eps_delta * (self.iteration / self.numLoopsForLinear)
+  local eps_delta = self.eps_final - self.eps_initial
+  self.eps = self.eps_initial + eps_delta * (self.iteration / self.numLoopsForLinear)
 
-  self.gamma_delta = self.gamma_final - self.gamma_initial
-  self.gamma = self.gamma_initial + self.gamma_delta * (self.iteration / self.numLoopsForLinear)
+  local gamma_delta = self.gamma_final - self.gamma_initial
+  self.gamma = self.gamma_initial + gamma_delta * (self.iteration / self.numLoopsForLinear)
 end
 
 

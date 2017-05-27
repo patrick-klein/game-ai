@@ -29,7 +29,7 @@ function bagLearner:__init(game)
   parent.__init(self, game)
 
   --number of weak learners to aggregate
-  self.numWeakLearners = 30
+  self.numWeakLearners = 10
 
   --variable initializations
   self.trainedLearners = 0
@@ -51,6 +51,7 @@ function bagLearner:train()
     --need to free up memory, esp. if using many learners
     weakLearner.memory = {}
     weakLearner.memIndex = 0
+    collectgarbage()
 
     --add learner to pool
     self.learnerPool[t] = weakLearner
@@ -69,13 +70,12 @@ end
 function bagLearner:createWeakLearner()
 
   net = nn.Sequential()
-  net:add(nn.Linear(9, 1024))
-  net:add(nn.ReLU())
-  net:add(nn.Tanh())
-  --net:add(nn.Sigmoid())
+  net:add(nn.Linear(self.game.numInputs, 1024))
+  net:add(nn.PReLU(1024))
+  --net:add(nn.ReLU())
   --net:add(nn.Linear(256,256))
   --net:add(nn.ReLU())
-  net:add(nn.Linear(1024, 9))
+  net:add(nn.Linear(1024, self.game.numOutputs))
 
   --do NOT assign self.game, need to create new instance
   weakLearner = qLearner(self.game.new(), net)
@@ -93,11 +93,11 @@ function bagLearner:createWeakLearner()
   --weakLearner.replaySize = 1e5
   --weakLearner.batchSize = 2048
 
-  --weakLearner.eps_initial 	= 1
-  --weakLearner.eps_final 		= 0.9
-  --weakLearner.gamma_initial 	= 0
-  --weakLearner.gamma_final 		= 0.05
-  --weakLearner:updateConstants()
+  weakLearner.eps_initial = 1
+  weakLearner.eps_final = 0.5
+  weakLearner.gamma_initial = 0
+  weakLearner.gamma_final = 0.25
+  weakLearner:updateConstants()
 
   return weakLearner
 
@@ -120,8 +120,8 @@ function bagLearner:selfEvaluate()
 
   local numTrials = 1e2
   local runningTotal = 0
-  torch.manualSeed(42)
   for myEval = 1, numTrials do
+    torch.manualSeed(42 * myEval)
     runningTotal = runningTotal + self.game:test()
   end
   torch.seed()
@@ -140,12 +140,13 @@ function bagLearner:learnerEvaluate()
 
   ----for increased efficency, only evaluate one learner
   ----  need a way to re-weight accordingly
+  ----  maybe rescale scores to ensure using softlogmax
 
   for t = 1, self.trainedLearners do
-    torch.manualSeed(42)
     local numTrials = 1e2
     local runningTotal = 0
     for myEval = 1, numTrials do
+      torch.manualSeed(42 * myEval)
       runningTotal = runningTotal + self.learnerPool[t].game:test()
     end
     if self.game.name == '2048' then
