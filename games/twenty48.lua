@@ -15,6 +15,7 @@
     getMoveIndexFromString(string)
     gameOver()
     drawBoard()
+    scaleDownLog2(input)
 
 ]]
 
@@ -60,7 +61,6 @@ function twenty48:play(player)
 
   --initialize board states
   self:generateBoard()
-  prevState = self.state:view(16)
 
   --declare and initialize variables
   local highScore = 0
@@ -70,7 +70,6 @@ function twenty48:play(player)
   local action
   local actionIndex
   local score = 0
-  local memState
 
   --loop until game ends
   while true do
@@ -86,20 +85,29 @@ function twenty48:play(player)
     if player == hum then action = self:playerTurn() end
     if player == com then action = self:comTurn() end
 
+    local prevState = self:scaleDownLog2(self.state:clone():view(16))
+
     --update state
     self.state = self:updateBoard(action)
 
     --randomly insert value into board
     self:insertValue()
-    memState = self.state:view(16)
 
-    --assign score
-    ----best method for assigning score is still being tested
+    --clone state to be used in replay memory
+    ----should the state be captured before OR after insertValue?
+    local memState = self:scaleDownLog2(self.state:clone():view(16))
+
+    --DEBUG--
+    if false then
+      print(prevState:view(4, 4))
+      print(memState:view(4, 4))
+      print(action)
+      assert(false)
+    end
+
+    --assign score which will be returned
     if torch.max(self.state) > highScore then
       highScore = torch.max(self.state)
-      --score = self.newHighScore
-      --else
-      --score = 0
     end
 
     --check for terminal board state
@@ -107,28 +115,24 @@ function twenty48:play(player)
 
     --create some memories and pass to AI
     if self.AI and not self.testmode then
-      --score = self.didMerge and 1 or 0
       score = isTerminal and - 1 or self.mergeSum
-      --score = isTerminal and -1 or (self.didMerge and 1 or 0)
-      --score = isTerminal and -1 or score
       actionIndex = self:getMoveIndexFromString(action)
       self.AI.memIndex = self.AI.memIndex + 1
       --it's a good idea to scale back the input logarithmically
-      self.AI.memory[self.AI.memIndex] = {torch.floor(torch.log1p(prevState) / torch.log(2)), torch.floor(torch.log1p(memState) / torch.log(2)), actionIndex, score, isTerminal}
-      prevState = memState
+      self.AI.memory[self.AI.memIndex] = {prevState, memState, actionIndex, score, isTerminal}
+      --prevState = memState:clone()
     end
 
     --end game if terminal
     if isTerminal then
-      --if self.testmode then self:drawBoard() end
       if self.draw then
         self:drawBoard()
         print('Game Over!')
         print(self.turn + 1)
         print(highScore)
       end
-      --return highScore
-      return torch.log(highScore) / torch.log(2)
+      --return highScore, scaled down
+      return self:scaleDownLog2(highScore)
     end
 
     --increment turn counter
@@ -210,8 +214,7 @@ function twenty48:updateBoard(action)
         -- if next non-zero block is same, merge (unless already merged)
         if newState[rowUphill][col] == newState[row][col] and newState[row][col] ~= 0 and not ignoreMerge then
           newState[row][col] = newState[row][col] * 2
-          --self.mergeSum = self.mergeSum + torch.log1p(newState[row][col])/torch.log(2)/11
-          self.mergeSum = self.mergeSum + torch.floor(torch.log1p(newState[row][col]) / torch.log(2)) / 11
+          self.mergeSum = self.mergeSum + (self:scaleDownLog2(newState[row][col]) / 11)^2
           newState[rowUphill][col] = 0
           ignoreMerge = true
           self.didMerge = true
@@ -267,9 +270,6 @@ function twenty48:insertValue()
     end
   end
 
-  ----debug
-  if tempArrayIndex == 0 then print(self.state:view(4, 4)) end
-
   --shuffle indices
   local randArray = torch.randperm(tempArrayIndex)
 
@@ -304,11 +304,9 @@ function twenty48:comTurn()
 
   --generate moves using AI or randomly
   if self.AI and (torch.uniform() > eps or self.testmode) then
-    local Q = self.AI:process(self.state:view(16))
+    local Q = self.AI:process(self:scaleDownLog2(self.state:view(16)))
     Qsorted, Qindices = torch.sort(Q, 1, true)
     actionList = Qindices
-    --if Qsorted[1]>5 and self.testmode then print(Qsorted[1]) end
-    --print(Qsorted[1])
   else
     actionList = torch.randperm(4)
   end
@@ -320,10 +318,10 @@ function twenty48:comTurn()
     isValidMove = not torch.all(torch.eq(self.state, self:updateBoard(actionString)))
     if isValidMove then
       return actionString
-    else
+    elseif not self.testmode then
       -- penalize incorrect inputs
       self.AI.memIndex = self.AI.memIndex + 1
-      self.AI.memory[self.AI.memIndex] = {torch.floor(torch.log1p(self.state:view(16)) / torch.log(2)), torch.floor(torch.log1p(self.state:view(16)) / torch.log(2)), actionIndex, - 1, false}
+      self.AI.memory[self.AI.memIndex] = {self:scaleDownLog2(self.state:view(16)), self:scaleDownLog2(self.state:view(16)), actionIndex, - 1, false}
     end
   end
 end
@@ -355,7 +353,10 @@ function twenty48:gameOver()
   --loop through all possible moves, terminal if board is still full
   for i = 1, 4 do
     action = self:getMoveStringFromIndex(i)
-    if not torch.all(torch.eq(self.state, self:updateBoard(action))) then
+    local storedMergeSum = self.mergeSum
+    gameOverCondition = torch.all(torch.eq(self.state, self:updateBoard(action)))
+    self.mergeSum = storedMergeSum
+    if not gameOverCondition then
       return false
     end
   end
@@ -379,4 +380,10 @@ function twenty48:drawBoard()
   end
   io.write('\n\n')
 
+end
+
+
+--scales down input/scores from 2,4,8,16... to 1,2,3,4...
+function twenty48:scaleDownLog2(input)
+  return torch.floor(torch.log1p(input) / torch.log(2))
 end

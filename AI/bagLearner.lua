@@ -29,7 +29,7 @@ function bagLearner:__init(game)
   parent.__init(self, game)
 
   --number of weak learners to aggregate
-  self.numWeakLearners = 10
+  self.numWeakLearners = 4
 
   --variable initializations
   self.trainedLearners = 0
@@ -69,9 +69,10 @@ end
 --create a new qLearner and assign parameters
 function bagLearner:createWeakLearner()
 
-  local numHiddenNodes = 1024
+  local numHiddenNodes = 1536
 
   net = nn.Sequential()
+  --net:add(nn.Dropout(0.33))
   net:add(nn.Linear(self.game.numInputs, numHiddenNodes))
   net:add(nn.PReLU(numHiddenNodes))
   --net:add(nn.Linear(2048, 2048))
@@ -87,17 +88,17 @@ function bagLearner:createWeakLearner()
   weakLearner.saveMemory = false
   --weakLearner.verbose = false
 
-  weakLearner.numLoopsToFinish = 150
-  weakLearner.numLoopsForLinear = 150
+  weakLearner.numLoopsToFinish = 100
+  weakLearner.numLoopsForLinear = 100
   weakLearner.targetNetworkUpdateDelay = 75
   --weakLearner.replayStartSize = 1e4
   --weakLearner.replaySize = 1e5
   weakLearner.batchSize = 8192
-  weakLearner.numTrainingEpochs = 200
+  weakLearner.numTrainingEpochs = 10
 
-  weakLearner.eps_initial = 0.5
+  weakLearner.eps_initial = 1.0
   weakLearner.eps_final = 0.1
-  weakLearner.gamma_initial = 0.5
+  weakLearner.gamma_initial = 0
   weakLearner.gamma_final = 0.9
   weakLearner:updateConstants()
 

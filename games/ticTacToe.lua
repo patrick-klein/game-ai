@@ -210,6 +210,7 @@ function ticTacToe:comTurn(cTurn)
       --determine next move
       if (torch.uniform() > eps or exploit) and not explore then --exploit
         if first then --only process state once
+          ----This seems like a wrong implementation of temp, but it works!
           Q = normQ:forward(self.AI:process(pState * temp))
           exploit = true
           first = false

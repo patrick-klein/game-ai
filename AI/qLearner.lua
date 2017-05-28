@@ -131,6 +131,7 @@ function qLearner:train()
         --io.write('\n')
         print('Initializing replay memory...')
       end
+      --assuming memory is filled on first iteration, then eps is 1 and completely random
       fillMemory = self.replayStartSize
     end
     repeat
@@ -270,6 +271,16 @@ function qLearner:qLearn()
     local reward = self.replay[move][4]
     local terminal = self.replay[move][5]
 
+    --DEBUG--
+    if false then
+      print(origState:view(4, 4))
+      print(nextState:view(4, 4))
+      print(action)
+      print(reward)
+      print(terminal)
+      assert(false)
+    end
+
     --set desired Q value for action
     local y
     if terminal then
@@ -292,13 +303,13 @@ function qLearner:qLearn()
 
     --adjust value of current action
     --clamp delta to +1/-1
-    --local yDelta = y - output[action]
-    --if torch.abs(yDelta) < 1 or terminal then
-    target[action] = y
-    --else
-    ----is there a better way to check sign(y-output[action])?
-    --target[action] = output[action] + yDelta / torch.abs(yDelta)
-    --end
+    local yDelta = y - output[action]
+    if torch.abs(yDelta) < 1 or terminal then
+      target[action] = y
+    else
+      ----is there a better way to check sign(y-output[action])?
+      target[action] = output[action] + yDelta / torch.abs(yDelta)
+    end
 
     --package input and targets for batch optimization
     batchInputs[move] = origState
@@ -319,7 +330,7 @@ end
 function qLearner:optimizeNet(batchInputs, batchTargets, actionVals)
 
   --set net to training
-  --self.net:training()
+  self.net:training()
 
   --set training settings
   --local config = {}
@@ -356,10 +367,12 @@ function qLearner:optimizeNet(batchInputs, batchTargets, actionVals)
 
   end
 
+  self.net:evaluate()
+
 end
 
 -- private method for running test trials
--- should probably find a way to move this to specific game class
+----should probably find a way to move this to specific game class
 function qLearner:selfEvaluate()
 
   local numTrials = 1e2
@@ -398,9 +411,8 @@ function qLearner:drawBars(score)
 end
 
 
--- private method run once every train loop
+-- update learning constants once every training iteration
 function qLearner:updateConstants()
-  -- update learning constants
   local eps_delta = self.eps_final - self.eps_initial
   self.eps = self.eps_initial + eps_delta * (self.iteration / self.numLoopsForLinear)
 
