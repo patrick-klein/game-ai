@@ -378,8 +378,10 @@ function qLearner:selfEvaluate()
   local numTrials = 1e2
   local runningTotal = 0
   for myEval = 1, numTrials do
+    torch.manualSeed(42 * myEval)
     runningTotal = runningTotal + self.game:test()
   end
+  torch.seed()
 
   if self.game.name == '2048' then
     return runningTotal / numTrials

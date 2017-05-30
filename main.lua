@@ -24,6 +24,7 @@ hum = 2
 
 
 --quickly change between new and archived networks
+----should move this into qLearner
 if false then
   myNet = torch.load('./saves/myNetBest_2048.dat_archive')
   print(myNet)

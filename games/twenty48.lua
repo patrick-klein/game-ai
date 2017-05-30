@@ -16,6 +16,7 @@
     gameOver()
     drawBoard()
     scaleDownLog2(input)
+    expandBoard(input)
 
 ]]
 
@@ -47,7 +48,7 @@ function twenty48:__init()
   self.maxScore = 12
 
   --needed for AI to function
-  self.numInputs = 16
+  self.numInputs = 192
   self.numOutputs = 4
   self.numPlayers = 1
 
@@ -85,7 +86,7 @@ function twenty48:play(player)
     if player == hum then action = self:playerTurn() end
     if player == com then action = self:comTurn() end
 
-    local prevState = self:scaleDownLog2(self.state:clone():view(16))
+    local prevState = self:expandBoard(self.state)
 
     --update state
     self.state = self:updateBoard(action)
@@ -95,7 +96,7 @@ function twenty48:play(player)
 
     --clone state to be used in replay memory
     ----should the state be captured before OR after insertValue?
-    local memState = self:scaleDownLog2(self.state:clone():view(16))
+    local memState = self:expandBoard(self.state)
 
     --DEBUG--
     if false then
@@ -304,7 +305,7 @@ function twenty48:comTurn()
 
   --generate moves using AI or randomly
   if self.AI and (torch.uniform() > eps or self.testmode) then
-    local Q = self.AI:process(self:scaleDownLog2(self.state:view(16)))
+    local Q = self.AI:process(self:expandBoard(self.state))
     Qsorted, Qindices = torch.sort(Q, 1, true)
     actionList = Qindices
   else
@@ -321,7 +322,7 @@ function twenty48:comTurn()
     elseif not self.testmode then
       -- penalize incorrect inputs
       self.AI.memIndex = self.AI.memIndex + 1
-      self.AI.memory[self.AI.memIndex] = {self:scaleDownLog2(self.state:view(16)), self:scaleDownLog2(self.state:view(16)), actionIndex, - 1, false}
+      self.AI.memory[self.AI.memIndex] = {self:expandBoard(self.state), self:expandBoard(self.state), actionIndex, - 1, false}
     end
   end
 end
@@ -386,4 +387,27 @@ end
 --scales down input/scores from 2,4,8,16... to 1,2,3,4...
 function twenty48:scaleDownLog2(input)
   return torch.floor(torch.log1p(input) / torch.log(2))
+end
+
+
+--expands indexed 4x4 board into flattened binary 4x4x12 board
+function twenty48:expandBoard(input)
+
+  local oldBoard = self:scaleDownLog2(input:clone())
+  local newBoard = torch.Tensor(4, 4, 12):zero()
+
+  for row = 1, 4 do
+    for col = 1, 4 do
+      if oldBoard[row][col] > 0 then
+        if oldBoard[row][col] <= 12 then
+          newBoard[row][col][oldBoard[row][col]] = 1
+        else
+          newBoard[row][col][12] = 1
+        end
+      end
+    end
+  end
+
+  return newBoard:view(192)
+
 end

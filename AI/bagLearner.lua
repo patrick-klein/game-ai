@@ -69,14 +69,16 @@ end
 --create a new qLearner and assign parameters
 function bagLearner:createWeakLearner()
 
-  local numHiddenNodes = 1536
+  local numHiddenNodes = 2048
 
   net = nn.Sequential()
-  --net:add(nn.Dropout(0.33))
+
   net:add(nn.Linear(self.game.numInputs, numHiddenNodes))
-  net:add(nn.PReLU(numHiddenNodes))
-  --net:add(nn.Linear(2048, 2048))
-  --net:add(nn.PReLU(2048))
+  net:add(nn.Tanh())
+
+  net:add(nn.Linear(numHiddenNodes, numHiddenNodes))
+  net:add(nn.Tanh())
+
   net:add(nn.Linear(numHiddenNodes, self.game.numOutputs))
 
   --do NOT assign self.game, need to create new instance
@@ -85,21 +87,21 @@ function bagLearner:createWeakLearner()
   --weak learner params
   weakLearner.backup = false
   weakLearner.loadMemory = false
-  weakLearner.saveMemory = false
+  weakLearner.saveMemory = true
   --weakLearner.verbose = false
 
-  weakLearner.numLoopsToFinish = 100
-  weakLearner.numLoopsForLinear = 100
-  weakLearner.targetNetworkUpdateDelay = 75
-  --weakLearner.replayStartSize = 1e4
-  --weakLearner.replaySize = 1e5
-  weakLearner.batchSize = 8192
-  weakLearner.numTrainingEpochs = 10
+  weakLearner.numLoopsToFinish = 500
+  weakLearner.numLoopsForLinear = 500
+  weakLearner.targetNetworkUpdateDelay = 100
+  weakLearner.replayStartSize = 1e4
+  weakLearner.replaySize = 5e4
+  weakLearner.batchSize = 4096
+  weakLearner.numTrainingEpochs = 50
 
-  weakLearner.eps_initial = 1.0
-  weakLearner.eps_final = 0.1
-  weakLearner.gamma_initial = 0
-  weakLearner.gamma_final = 0.9
+  weakLearner.eps_initial = 0.9
+  weakLearner.eps_final = 0
+  weakLearner.gamma_initial = 0.5
+  weakLearner.gamma_final = 1
   weakLearner:updateConstants()
 
   return weakLearner

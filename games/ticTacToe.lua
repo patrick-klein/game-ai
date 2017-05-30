@@ -198,9 +198,6 @@ function ticTacToe:comTurn(cTurn)
   local exploit = (self.isChallenge or self.isHum)
   local explore = false
 
-  --local temp = (self.isChallenge or self.isHum) and 100 or 1
-  --local eps = (self.isChallenge or self.isHum) and 0 or self.AI.eps
-
   local temp = 1000
   local eps = self.AI.eps or 0
 
