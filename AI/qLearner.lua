@@ -49,6 +49,7 @@ function qLearner:__init(game, net)
   self.profile = false
   self.backup = false
   self.verbose = true
+  self.reload = false
 
   -- training parameters (look up Deep Mind paper for explanations)
   self.numLoopsToFinish = 1e6
@@ -62,6 +63,9 @@ function qLearner:__init(game, net)
 
   self.loadMemory = false
   self.saveMemory = false
+
+  -- q-learning rate
+  self.alpha = 1
 
   -- eps-greedy value
   self.eps_initial = 1.0
@@ -94,6 +98,8 @@ function qLearner:train()
   local prevAvgScore = 0
   local avgQ = 0
   local avgQCount = 0
+  local totalScoreForCurrentTarget = 0
+  local totalCountForCurrentTarget = 0
 
   local firstLoop = true
 
@@ -104,9 +110,7 @@ function qLearner:train()
   while self.iteration <= self.numLoopsToFinish do
 
     --update paramaters
-    if self.iteration < self.numLoopsForLinear then
-      self:updateConstants()
-    end
+    self:updateConstants()
 
     --wrap dataIndex when full
     if self.memIndex > self.replaySize then
@@ -161,8 +165,12 @@ function qLearner:train()
     if self.iteration%self.targetNetworkUpdateDelay == 0 then
       self.targetNet = self.net:clone()
       if self.verbose then
-        --io.write('\n')
-        print('Updating target network.')
+        --print('Updating target network.')
+        io.write(string.format('%03d---', self.iteration))
+        io.write(string.format('%06.3f', totalScoreForCurrentTarget / totalCountForCurrentTarget))
+        for i = 1, 68 do io.write('-') end io.write('\n')
+        totalScoreForCurrentTarget = 0
+        totalCountForCurrentTarget = 0
       end
     end
 
@@ -196,15 +204,19 @@ function qLearner:train()
           torch.save('./saves/'..self.game.name..'_best.net', self.net)
           torch.save('./saves/'..self.game.name..'_best-backup.net', self.net)
         end
-      else
+      elseif self.reload then
+        assert(self.backup, 'qLearner.backup must be set to reload .net files!')
         --reload best model if performance declined
-        --self.net = torch.load('./saves/myNetBest_2048.dat')
+        self.net = torch.load('./saves/myNetBest_2048.dat')
       end
 
       --keep running average
       tallyScore = tallyScore + score
       tallyCount = tallyCount + 1
       avgScore = tallyScore / tallyCount
+
+      totalScoreForCurrentTarget = totalScoreForCurrentTarget + score
+      totalCountForCurrentTarget = totalCountForCurrentTarget + 1
 
       --display iteration, score, and running average
       --annotate with * for new bestScore, or - for declining average
@@ -268,7 +280,7 @@ function qLearner:qLearn()
     local origState = self.replay[move][1] --passed directly into batchInputs
     local nextState = self.replay[move][2]
     local action = self.replay[move][3]
-    local reward = self.replay[move][4]
+    local reward = self.replay[move][4] - 0.01 --add small negative reward to encourage finding larger rewards
     local terminal = self.replay[move][5]
 
     --DEBUG--
@@ -303,6 +315,7 @@ function qLearner:qLearn()
 
     --adjust value of current action
     --clamp delta to +1/-1
+    --[[
     local yDelta = y - output[action]
     if torch.abs(yDelta) < 1 or terminal then
       target[action] = y
@@ -310,6 +323,8 @@ function qLearner:qLearn()
       ----is there a better way to check sign(y-output[action])?
       target[action] = output[action] + yDelta / torch.abs(yDelta)
     end
+    ]]
+    target[action] = self.alpha * y + (1 - self.alpha) * output[action]
 
     --package input and targets for batch optimization
     batchInputs[move] = origState
@@ -396,16 +411,34 @@ end
 --method that prints a neat bar to visualize score
 function qLearner:drawBars(score)
 
+  --[[
   maxScore = self.game.maxScore
   divStep = maxScore / 4
   div = divStep
   local numStars = torch.min(torch.Tensor({80, 80 * (score / maxScore)}))
   for star = 1, numStars do
     if maxScore * star / 80 >= div then
-      io.write('|')
+      io.write('░')
       div = div + divStep
     else
-      io.write('*')
+      io.write('█')
+    end
+  end
+  io.write('\n')
+]]
+
+  ----should rename this function to reflect new structure
+  ----add a way to show histogram of results, instead of just average scores?
+
+  maxScore = self.game.maxScore
+  local point = torch.floor(torch.min(torch.Tensor({120, 120 * (score / maxScore)})))
+  for space = 41, 120 do
+    if space == point then
+      io.write('○')
+    elseif space == 60 or space == 80 or space == 100 then
+      io.write('|')
+    else
+      io.write(' ')
     end
   end
   io.write('\n')
@@ -415,11 +448,19 @@ end
 
 -- update learning constants once every training iteration
 function qLearner:updateConstants()
-  local eps_delta = self.eps_final - self.eps_initial
-  self.eps = self.eps_initial + eps_delta * (self.iteration / self.numLoopsForLinear)
 
-  local gamma_delta = self.gamma_final - self.gamma_initial
-  self.gamma = self.gamma_initial + gamma_delta * (self.iteration / self.numLoopsForLinear)
+  if self.iteration < self.numLoopsForLinear then
+
+    local eps_delta = self.eps_final - self.eps_initial
+    self.eps = self.eps_initial + eps_delta * (self.iteration / self.numLoopsForLinear)
+
+    local gamma_delta = self.gamma_final - self.gamma_initial
+    self.gamma = self.gamma_initial + gamma_delta * (self.iteration / self.numLoopsForLinear)
+  end
+
+  self.alpha = 0.997 * self.alpha
+  --self.alpha = (self.numLoopsForLinear - self.iteration) / self.numLoopsForLinear
+
 end
 
 

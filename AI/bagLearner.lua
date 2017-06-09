@@ -29,7 +29,7 @@ function bagLearner:__init(game)
   parent.__init(self, game)
 
   --number of weak learners to aggregate
-  self.numWeakLearners = 4
+  self.numWeakLearners = 3
 
   --variable initializations
   self.trainedLearners = 0
@@ -59,7 +59,7 @@ function bagLearner:train()
 
     --get a metric of this learners performance, weight accordingly
     self:learnerEvaluate(t)
-    print(self.learnerWeights)
+    print(self.learnerWeights * self.trainedLearners)
     print(self:selfEvaluate())
   end
 
@@ -69,17 +69,18 @@ end
 --create a new qLearner and assign parameters
 function bagLearner:createWeakLearner()
 
-  local numHiddenNodes = 2048
+  local numHiddenNodes = 1024
 
   net = nn.Sequential()
 
   net:add(nn.Linear(self.game.numInputs, numHiddenNodes))
-  net:add(nn.Tanh())
+  net:add(nn.ReLU())
 
-  net:add(nn.Linear(numHiddenNodes, numHiddenNodes))
-  net:add(nn.Tanh())
+  --net:add(nn.Linear(numHiddenNodes, numHiddenNodes))
+  --net:add(nn.Tanh())
 
   net:add(nn.Linear(numHiddenNodes, self.game.numOutputs))
+  net:add(nn.AddConstant(2))
 
   --do NOT assign self.game, need to create new instance
   weakLearner = qLearner(self.game.new(), net)
@@ -87,21 +88,22 @@ function bagLearner:createWeakLearner()
   --weak learner params
   weakLearner.backup = false
   weakLearner.loadMemory = false
-  weakLearner.saveMemory = true
+  weakLearner.saveMemory = false
+  weakLearner.reload = false
   --weakLearner.verbose = false
 
-  weakLearner.numLoopsToFinish = 500
-  weakLearner.numLoopsForLinear = 500
-  weakLearner.targetNetworkUpdateDelay = 100
+  weakLearner.numLoopsToFinish = 750
+  weakLearner.numLoopsForLinear = 750
+  weakLearner.targetNetworkUpdateDelay = 25
   weakLearner.replayStartSize = 1e4
   weakLearner.replaySize = 5e4
-  weakLearner.batchSize = 4096
-  weakLearner.numTrainingEpochs = 50
+  weakLearner.batchSize = 2048
+  weakLearner.numTrainingEpochs = 100
 
-  weakLearner.eps_initial = 0.9
-  weakLearner.eps_final = 0
+  weakLearner.eps_initial = 0.1
+  weakLearner.eps_final = 0.01
   weakLearner.gamma_initial = 0.5
-  weakLearner.gamma_final = 1
+  weakLearner.gamma_final = 0.5
   weakLearner:updateConstants()
 
   return weakLearner
@@ -154,6 +156,7 @@ function bagLearner:learnerEvaluate()
       torch.manualSeed(42 * myEval)
       runningTotal = runningTotal + self.learnerPool[t].game:test()
     end
+    torch.seed()
     if self.game.name == '2048' then
       score = runningTotal / numTrials
     elseif self.game.name == 'TicTacToe' then
@@ -161,7 +164,6 @@ function bagLearner:learnerEvaluate()
     end
     self.learnerWeights[t] = score
   end
-  torch.seed()
 
   self.learnerWeights = self.learnerWeights / self.learnerWeights:sum()
 
@@ -171,5 +173,6 @@ function bagLearner:save()
   for t = 1, self.trainedLearners do
     self.learnerPool[t].game = nil
   end
+  collectgarbage()
   torch.save('saves/bagLearner_'..self.game.name..'.ai', self)
 end

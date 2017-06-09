@@ -68,7 +68,7 @@ function twenty48:play(player)
   self.turn = 1
   self.draw = self.draw or player == hum
   local isTerminal
-  local action
+  local action = nil
   local actionIndex
   local score = 0
 
@@ -78,7 +78,7 @@ function twenty48:play(player)
     --draws board
     --default on for human, off for AI
     if self.draw then
-      self:drawBoard()
+      self:drawBoard(action)
       os.execute('sleep 0.1')
     end
 
@@ -127,7 +127,7 @@ function twenty48:play(player)
     --end game if terminal
     if isTerminal then
       if self.draw then
-        self:drawBoard()
+        self:drawBoard(action)
         print('Game Over!')
         print(self.turn + 1)
         print(highScore)
@@ -366,20 +366,36 @@ end
 
 
 --private method, draws board
-function twenty48:drawBoard()
+function twenty48:drawBoard(action)
 
   --draw each row separately
   for row = 1, 4 do
     io.write('\n\t')
-    io.write(self.state[row][1])
+    if self.state[row][1] > 0 then
+      io.write(self.state[row][1])
+    else io.write('-') end
     io.write('\t')
-    io.write(self.state[row][2])
+    if self.state[row][2] > 0 then
+      io.write(self.state[row][2])
+    else io.write('-') end
     io.write('\t')
-    io.write(self.state[row][3])
+    if self.state[row][3] > 0 then
+      io.write(self.state[row][3])
+    else io.write('-') end
     io.write('\t')
-    io.write(self.state[row][4])
+    if self.state[row][4] > 0 then
+      io.write(self.state[row][4])
+    else io.write('-') end
   end
-  io.write('\n\n')
+  io.write('\n')
+
+  if action == 'w' then io.write('↑')
+  elseif action == 'a' then io.write('←')
+  elseif action == 's' then io.write('↓')
+  elseif action == 'd' then io.write('→')
+  end
+
+  io.write('\n')
 
 end
 
