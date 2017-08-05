@@ -78,6 +78,10 @@ function qLearner:__init(game, net)
   self.eps = self.eps_initial
   self.gamma = self.gamma_initial
 
+  self.learningRate = 0.0001
+
+  self.optimState = {}
+
 end
 
 -- public method for training neural network
@@ -164,7 +168,7 @@ function qLearner:train()
     ----(look up Deep Mind paper)
     if self.iteration%self.targetNetworkUpdateDelay == 0 then
       self.targetNet = self.net:clone()
-      if self.verbose then
+      if self.verbose and totalCountForCurrentTarget > 0 then
         --print('Updating target network.')
         io.write(string.format('%03d---', self.iteration))
         io.write(string.format('%06.3f', totalScoreForCurrentTarget / totalCountForCurrentTarget))
@@ -349,7 +353,7 @@ function qLearner:optimizeNet(batchInputs, batchTargets, actionVals)
 
   --set training settings
   --local config = {}
-  local config = {learningRate = 0.1}
+  local config = {learningRate = self.learningRate}
 
   --set criterion for loss function
   ----Test criterion other than MSE.  "Error" is not Gaussian, breaks assumption
@@ -376,9 +380,12 @@ function qLearner:optimizeNet(batchInputs, batchTargets, actionVals)
     end
 
     --apply optimization method
-    optim.sgd(feval, params, config)
+    --optim.sgd(feval, params, config)
     --optim.adamax(feval,params,config)
-    --optim.rmsprop(feval,params,config)
+    --optim.adagrad(feval, params, config, self.optimState)
+    --optim.rmsprop(feval, params, config, self.optimState)
+    optim.adam(feval, params, config, self.optimState)
+    --print(self.optimState)
 
   end
 
@@ -460,6 +467,7 @@ function qLearner:updateConstants()
 
   self.alpha = 0.997 * self.alpha
   --self.alpha = (self.numLoopsForLinear - self.iteration) / self.numLoopsForLinear
+  --self.alpha = 1 / self.iteration
 
 end
 

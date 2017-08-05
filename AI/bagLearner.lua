@@ -29,7 +29,7 @@ function bagLearner:__init(game)
   parent.__init(self, game)
 
   --number of weak learners to aggregate
-  self.numWeakLearners = 3
+  self.numWeakLearners = 1
 
   --variable initializations
   self.trainedLearners = 0
@@ -49,8 +49,12 @@ function bagLearner:train()
     weakLearner:train()
 
     --need to free up memory, esp. if using many learners
+    -- should probably move this to qLearner class
     weakLearner.memory = nil
     weakLearner.memIndex = nil
+    weakLearner.optimState = nil
+    weakLearner.targetNet = nil
+    weakLearner.replay = nil
     collectgarbage()
 
     --add learner to pool
@@ -69,18 +73,18 @@ end
 --create a new qLearner and assign parameters
 function bagLearner:createWeakLearner()
 
-  local numHiddenNodes = 1024
+  local numHiddenNodes = 1536
 
   net = nn.Sequential()
 
   net:add(nn.Linear(self.game.numInputs, numHiddenNodes))
   net:add(nn.ReLU())
 
-  --net:add(nn.Linear(numHiddenNodes, numHiddenNodes))
-  --net:add(nn.Tanh())
+  net:add(nn.Linear(numHiddenNodes, numHiddenNodes))
+  net:add(nn.ReLU())
 
   net:add(nn.Linear(numHiddenNodes, self.game.numOutputs))
-  net:add(nn.AddConstant(2))
+  --net:add(nn.AddConstant(2))
 
   --do NOT assign self.game, need to create new instance
   weakLearner = qLearner(self.game.new(), net)
@@ -92,18 +96,18 @@ function bagLearner:createWeakLearner()
   weakLearner.reload = false
   --weakLearner.verbose = false
 
-  weakLearner.numLoopsToFinish = 750
+  weakLearner.numLoopsToFinish = 1000
   weakLearner.numLoopsForLinear = 750
   weakLearner.targetNetworkUpdateDelay = 25
   weakLearner.replayStartSize = 1e4
   weakLearner.replaySize = 5e4
-  weakLearner.batchSize = 2048
-  weakLearner.numTrainingEpochs = 100
+  weakLearner.batchSize = 4096
+  weakLearner.numTrainingEpochs = 1
 
-  weakLearner.eps_initial = 0.1
-  weakLearner.eps_final = 0.01
-  weakLearner.gamma_initial = 0.5
-  weakLearner.gamma_final = 0.5
+  weakLearner.eps_initial = 0.9
+  weakLearner.eps_final = 0.1
+  weakLearner.gamma_initial = 0.3
+  weakLearner.gamma_final = 0.7
   weakLearner:updateConstants()
 
   return weakLearner

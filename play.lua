@@ -23,7 +23,7 @@ hum = 2
 myGame = twenty48()
 --myGame = ticTacToe()
 
-myAI = torch.load('saves/bagLearner_2048.ai')
+myAI = torch.load('saves/bagLearner_2048-archive-3.ai')
 myGame.AI = myAI
 
 --quick way to choose human or AI player

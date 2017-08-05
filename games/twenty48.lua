@@ -368,6 +368,14 @@ end
 --private method, draws board
 function twenty48:drawBoard(action)
 
+  if action == 'w' then io.write('↑')
+  elseif action == 'a' then io.write('←')
+  elseif action == 's' then io.write('↓')
+  elseif action == 'd' then io.write('→')
+  end
+
+  io.write('\n')
+
   --draw each row separately
   for row = 1, 4 do
     io.write('\n\t')
@@ -389,14 +397,6 @@ function twenty48:drawBoard(action)
   end
   io.write('\n')
 
-  if action == 'w' then io.write('↑')
-  elseif action == 'a' then io.write('←')
-  elseif action == 's' then io.write('↓')
-  elseif action == 'd' then io.write('→')
-  end
-
-  io.write('\n')
-
 end
 
 
@@ -406,7 +406,7 @@ function twenty48:scaleDownLog2(input)
 end
 
 
---expands indexed 4x4 board into flattened binary 4x4x12 board
+--expands indexed 4x4 board into scaled and flattened 4x4x12 board
 function twenty48:expandBoard(input)
 
   local oldBoard = self:scaleDownLog2(input:clone())
@@ -424,6 +424,9 @@ function twenty48:expandBoard(input)
     end
   end
 
-  return newBoard:view(192)
+  newBoard = newBoard:view(192)
+  --newBoard = (newBoard:view(192) - .5) / .5
+
+  return newBoard
 
 end
