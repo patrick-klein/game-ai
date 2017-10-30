@@ -135,10 +135,7 @@ function qLearner:train()
     if wrapMemory or self.memIndex >= self.replayStartSize then
       fillMemory = self.memIndex + self.batchSize
     else
-      if self.verbose then
-        --io.write('\n')
-        print('Initializing replay memory...')
-      end
+      if self.verbose then print('Initializing replay memory...') end
       --assuming memory is filled on first iteration, then eps is 1 and completely random
       fillMemory = self.replayStartSize
     end
@@ -383,8 +380,8 @@ function qLearner:optimizeNet(batchInputs, batchTargets, actionVals)
     --optim.sgd(feval, params, config)
     --optim.adamax(feval,params,config)
     --optim.adagrad(feval, params, config, self.optimState)
-    --optim.rmsprop(feval, params, config, self.optimState)
-    optim.adam(feval, params, config, self.optimState)
+    optim.rmsprop(feval, params, config, self.optimState)
+    --optim.adam(feval, params, config, self.optimState)
     --print(self.optimState)
 
   end
@@ -438,11 +435,15 @@ function qLearner:drawBars(score)
   ----add a way to show histogram of results, instead of just average scores?
 
   maxScore = self.game.maxScore
-  local point = torch.floor(torch.min(torch.Tensor({120, 120 * (score / maxScore)})))
-  for space = 41, 120 do
+  term_length = 80
+  offset = 0
+  div_length = (term_length - offset) / 4
+  local point = torch.floor(torch.min(torch.Tensor({term_length, term_length * (score / maxScore)})))
+  for space = offset + 1, term_length do
     if space == point then
       io.write('○')
-    elseif space == 60 or space == 80 or space == 100 then
+      --elseif space == 60 or space == 80 or space == 100 then
+    elseif space%div_length == 0 then
       io.write('|')
     else
       io.write(' ')

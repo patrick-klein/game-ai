@@ -1,4 +1,3 @@
-
 --[[
   This is a learner that will use bagging of weak learners
 
@@ -55,6 +54,7 @@ function bagLearner:train()
     weakLearner.optimState = nil
     weakLearner.targetNet = nil
     weakLearner.replay = nil
+    weakLearner.optimState = nil
     collectgarbage()
 
     --add learner to pool
@@ -73,7 +73,7 @@ end
 --create a new qLearner and assign parameters
 function bagLearner:createWeakLearner()
 
-  local numHiddenNodes = 1536
+  local numHiddenNodes = 1024
 
   net = nn.Sequential()
 
@@ -97,17 +97,18 @@ function bagLearner:createWeakLearner()
   --weakLearner.verbose = false
 
   weakLearner.numLoopsToFinish = 1000
-  weakLearner.numLoopsForLinear = 750
-  weakLearner.targetNetworkUpdateDelay = 25
-  weakLearner.replayStartSize = 1e4
-  weakLearner.replaySize = 5e4
-  weakLearner.batchSize = 4096
-  weakLearner.numTrainingEpochs = 1
+  weakLearner.numLoopsForLinear = 500
+  weakLearner.targetNetworkUpdateDelay = 100
+  weakLearner.replayStartSize = 2048
+  weakLearner.replaySize = 2048
+  weakLearner.batchSize = 2048
+  weakLearner.numTrainingEpochs = 5
 
   weakLearner.eps_initial = 0.9
-  weakLearner.eps_final = 0.1
-  weakLearner.gamma_initial = 0.3
-  weakLearner.gamma_final = 0.7
+  weakLearner.eps_final = 0
+  weakLearner.gamma_initial = 0.5
+  weakLearner.gamma_final = 0.5
+  weakLearner.learningRate = 0.00001
   weakLearner:updateConstants()
 
   return weakLearner

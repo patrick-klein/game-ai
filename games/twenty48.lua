@@ -45,7 +45,9 @@ function twenty48:__init()
 
   self.draw = nil
 
-  self.maxScore = 12
+  --used for plotting training progress
+  --self.maxScore = 12
+  self.maxScore = 512
 
   --needed for AI to function
   self.numInputs = 192
@@ -133,7 +135,8 @@ function twenty48:play(player)
         print(highScore)
       end
       --return highScore, scaled down
-      return self:scaleDownLog2(highScore)
+      --return self:scaleDownLog2(highScore)
+      return self.turn + 1
     end
 
     --increment turn counter
