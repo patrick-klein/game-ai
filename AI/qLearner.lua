@@ -221,7 +221,6 @@ function qLearner:train()
 
       --display iteration, score, and running average
       --annotate with * for new bestScore, or - for declining average
-
       if self.verbose then
         if false then
           io.write('\n')
@@ -233,7 +232,6 @@ function qLearner:train()
           io.write('\tAverage Q\t') io.write(avgQ / avgQCount) io.write('\n')
         else
           self:plotProgress(score)
-          --print(self.iteration)
         end
       end
 
@@ -413,9 +411,8 @@ end
 
 
 --method that prints a neat bar to visualize score
+--add a way to show histogram of results, instead of just average scores?
 function qLearner:plotProgress(score)
-
-  ----add a way to show histogram of results, instead of just average scores?
 
   maxScore = self.game.maxScore
   term_length = 80

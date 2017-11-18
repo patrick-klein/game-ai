@@ -7,6 +7,7 @@
     Implement CUDA
     create method that scrapes out unnecessary data when saving
     pass class of game instead of instance to AI agents
+    use actual high score for 2048 game
 ]]
 
 

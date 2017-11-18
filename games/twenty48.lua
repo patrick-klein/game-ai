@@ -7,29 +7,31 @@
     test()
     generateBoard()
     getNewRandTileVal()
-    updateBoard(action)
+    updateBoard(actionIndex)
     insertValue()
     playerTurn()
     comTurn()
-    getMoveStringFromIndex(index)
-    getMoveIndexFromString(string)
     gameOver()
     drawBoard()
+    augmentMemory(prevState, memState, actionIndex, score, isTerminal)
+
+  local functions
+    rotateCW90(board, rotate_by)
     scaleDownLog2(input)
     expandBoard(input)
 
 ]]
 
--- require libraries
+--require libraries
 require 'torch'
 require 'nn'
 require 'io'
 
--- require classes
+--require classes
 require 'games/game'
 require 'AI/AI'
 
--- create twenty48
+--create class
 local twenty48, parent = torch.class('twenty48', 'game')
 
 -- initialization function
@@ -46,7 +48,6 @@ function twenty48:__init()
   self.draw = nil
 
   --used for plotting training progress
-  --self.maxScore = 12
   self.maxScore = 512
 
   --needed for AI to function
@@ -65,10 +66,12 @@ function twenty48:play(player)
   --initialize board states
   self:generateBoard()
 
+  --draw by default for humans
+  self.draw = self.draw or player == hum
+
   --declare and initialize variables
   local highScore = 0
   self.turn = 1
-  self.draw = self.draw or player == hum
   local isTerminal
   local action = nil
   local actionIndex
@@ -78,35 +81,30 @@ function twenty48:play(player)
   while true do
 
     --draws board
-    --default on for human, off for AI
     if self.draw then
       self:drawBoard(action)
       os.execute('sleep 0.1')
     end
 
-    -- call method to get move from player or AI
-    if player == hum then action = self:playerTurn() end
-    if player == com then action = self:comTurn() end
+    --call method to get move from player or AI
+    if player == hum then
+      actionIndex = self:playerTurn()
+    elseif player == com then
+      actionIndex = self:comTurn()
+    end
 
-    local prevState = self:expandBoard(self.state)
+    --store state for memory
+    local prevState = self.state:clone()
 
     --update state
-    self.state = self:updateBoard(action)
+    self.state = self:updateBoard(actionIndex)
 
     --randomly insert value into board
     self:insertValue()
 
     --clone state to be used in replay memory
     ----should the state be captured before OR after insertValue?
-    local memState = self:expandBoard(self.state)
-
-    --DEBUG--
-    if false then
-      print(prevState:view(4, 4))
-      print(memState:view(4, 4))
-      print(action)
-      assert(false)
-    end
+    local memState = self.state:clone()
 
     --assign score which will be returned
     if torch.max(self.state) > highScore then
@@ -116,32 +114,31 @@ function twenty48:play(player)
     --check for terminal board state
     isTerminal = self:gameOver()
 
-    --create some memories and pass to AI
+    --create some memories (and augment) and pass to AI
     if self.AI and not self.testmode then
-      score = isTerminal and - 1 or self.mergeSum
-      actionIndex = self:getMoveIndexFromString(action)
-      self.AI.memIndex = self.AI.memIndex + 1
-      --it's a good idea to scale back the input logarithmically
-      self.AI.memory[self.AI.memIndex] = {prevState, memState, actionIndex, score, isTerminal}
-      --prevState = memState:clone()
+      score = isTerminal and -1 or 0
+      self:augmentMemory(prevState, memState, actionIndex, score, isTerminal)
     end
 
     --end game if terminal
     if isTerminal then
+
+      --draw final move
       if self.draw then
         self:drawBoard(action)
         print('Game Over!')
         print(self.turn + 1)
         print(highScore)
       end
-      --return highScore, scaled down
-      --return self:scaleDownLog2(highScore)
+
+      --return store
       return self.turn + 1
     end
 
     --increment turn counter
     self.turn = self.turn + 1
   end
+
 end
 
 
@@ -168,41 +165,70 @@ function twenty48:getNewRandTileVal()
 end
 
 
---privdate method, returns new board according to action
-function twenty48:updateBoard(action)
+--define local function to rotate board
+local function rotateCW90(board, rotate_by)
+  local tempArray = torch.Tensor(4, 4):zero()
+  if rotate_by == -1 then newState = newState:t() end
+  for row = 1, 4 do
+    for col = 1, 4 do
+      tempArray[4 - row + 1][col] = newState[row][col]
+    end
+  end
+  newState = tempArray
+  if rotate_by == 1 then newState = newState:t() end
+  newState = newState:contiguous()
+  return newState
+end
 
-  --copy board while manipulating it
-  local newState = self.state:clone()
 
-  --define local function to rotate board
-  local function rotateCW90(rotate_by)
-    local tempArray = torch.Tensor(4, 4):zero()
-    if rotate_by == -1 then newState = newState:t() end
-    for row = 1, 4 do
-      for col = 1, 4 do
-        tempArray[4 - row + 1][col] = newState[row][col]
+--scales down input/scores from 2,4,8,16... to 1,2,3,4...
+local function scaleDownLog2(input)
+  return torch.floor(torch.log1p(input) / torch.log(2))
+end
+
+
+--expands indexed 4x4 board into scaled and flattened 4x4x12 board
+local function expandBoard(input)
+
+  local oldBoard = scaleDownLog2(input:clone())
+  local newBoard = torch.Tensor(4, 4, 12):zero()
+
+  for row = 1, 4 do
+    for col = 1, 4 do
+      if oldBoard[row][col] > 0 then
+        if oldBoard[row][col] <= 12 then
+          newBoard[row][col][oldBoard[row][col]] = 1
+        else
+          newBoard[row][col][12] = 1
+        end
       end
     end
-    newState = tempArray
-    if rotate_by == 1 then newState = newState:t() end
-    newState = newState:contiguous()
   end
 
-  --rotate so shifting is in the upwards direction
-  ----lua doesn't have a switch statement... *sigh*
-  if action == 'a' then
-    rotateCW90(1)
-  elseif action == 's' then
-    rotateCW90(-1)
-    rotateCW90(-1)
-  elseif action == 'd' then
-    rotateCW90(-1)
+  newBoard = newBoard:view(192)
+  return newBoard
+
+end
+
+
+--privdate method, returns new board according to action
+function twenty48:updateBoard(actionIndex)
+
+  newState = self.state:clone()
+
+  --get rotated copy of board so shifting is in the upwards direction
+  if actionIndex == 2 then
+    newState = rotateCW90(newState, -1)
+  elseif actionIndex == 3 then
+    newState = rotateCW90(newState, -1)
+    newState = rotateCW90(newState, -1)
+  elseif actionIndex == 4 then
+    newState = rotateCW90(newState, 1)
   end
 
-  --initialize some more variables
+  --initialize variables to remember if values merged
+  --(used in reward)
   self.didMerge = false
-  self.mergeSum = 0
-  self.numMerge = 0
 
   --shift everything upwards
   local nextCol = false local ignoreMerge = false
@@ -218,7 +244,6 @@ function twenty48:updateBoard(action)
         -- if next non-zero block is same, merge (unless already merged)
         if newState[rowUphill][col] == newState[row][col] and newState[row][col] ~= 0 and not ignoreMerge then
           newState[row][col] = newState[row][col] * 2
-          self.mergeSum = self.mergeSum + (self:scaleDownLog2(newState[row][col]) / 11)^2
           newState[rowUphill][col] = 0
           ignoreMerge = true
           self.didMerge = true
@@ -243,13 +268,13 @@ function twenty48:updateBoard(action)
   end
 
   --rotate back to original orientation
-  if action == 'a' then
-    rotateCW90(-1)
-  elseif action == 's' then
-    rotateCW90(-1)
-    rotateCW90(-1)
-  elseif action == 'd' then
-    rotateCW90(1)
+  if actionIndex == 2 then
+    newState = rotateCW90(newState, 1)
+  elseif actionIndex == 3 then
+    newState = rotateCW90(newState, -1)
+    newState = rotateCW90(newState, -1)
+  elseif actionIndex == 4 then
+    newState = rotateCW90(newState, -1)
   end
 
   --return new board
@@ -289,15 +314,17 @@ end
 
 --private method, gets valid input from player (w,a,s,d)
 function twenty48:playerTurn()
+  actionTable = {w=1, d=2, s=3, a=4}
   --keep trying until valid input received
   repeat
-    action = io.read()
-    isValidKey = action == 'w' or action == 'a' or action == 's' or action == 'd'
+    actionString = io.read()
+    actionIndex = actionTable[actionString]
+    isValidKey = actionIndex ~= nil
     if isValidKey then
-      isValidMove = not torch.all(torch.eq(self.state, self:updateBoard(action)))
+      isValidMove = not torch.all(torch.eq(self.state, self:updateBoard(actionIndex)))
     end
   until isValidKey and isValidMove
-  return action
+  return actionIndex
 end
 
 --private method, generates move from the AI
@@ -308,7 +335,7 @@ function twenty48:comTurn()
 
   --generate moves using AI or randomly
   if self.AI and (torch.uniform() > eps or self.testmode) then
-    local Q = self.AI:process(self:expandBoard(self.state))
+    local Q = self.AI:process(expandBoard(self.state))
     Qsorted, Qindices = torch.sort(Q, 1, true)
     actionList = Qindices
   else
@@ -317,49 +344,30 @@ function twenty48:comTurn()
 
   --check if moves are valid, return if true
   for i = 1, 4 do
+
     actionIndex = actionList[i]
-    actionString = self:getMoveStringFromIndex(actionIndex)
-    isValidMove = not torch.all(torch.eq(self.state, self:updateBoard(actionString)))
+    isValidMove = not torch.all(torch.eq(self.state, self:updateBoard(actionIndex)))
+
     if isValidMove then
-      return actionString
+      return actionIndex
+
+    -- penalize incorrect inputs
     elseif not self.testmode then
-      -- penalize incorrect inputs
-      self.AI.memIndex = self.AI.memIndex + 1
-      self.AI.memory[self.AI.memIndex] = {self:expandBoard(self.state), self:expandBoard(self.state), actionIndex, - 1, false}
+      self:augmentMemory(self.state, self.state, actionIndex, -1, false)
+
     end
   end
+
 end
 
 
---private method, converts move indices into strings
-----could probably just use typedef or tuple (or lua equivalent)
-function twenty48:getMoveStringFromIndex(index)
-  if index == 1 then return 'w'
-  elseif index == 2 then return 'a'
-  elseif index == 3 then return 's'
-  elseif index == 4 then return 'd'
-  end
-end
-
-
---private method, converts move string to index
-function twenty48:getMoveIndexFromString(string)
-  if string == 'w' then return 1
-  elseif string == 'a' then return 2
-  elseif string == 's' then return 3
-  elseif string == 'd' then return 4
-  end
-end
 
 
 --private method, checks is there are any valid moves left
 function twenty48:gameOver()
   --loop through all possible moves, terminal if board is still full
   for i = 1, 4 do
-    action = self:getMoveStringFromIndex(i)
-    local storedMergeSum = self.mergeSum
-    gameOverCondition = torch.all(torch.eq(self.state, self:updateBoard(action)))
-    self.mergeSum = storedMergeSum
+    gameOverCondition = torch.all(torch.eq(self.state, self:updateBoard(i)))
     if not gameOverCondition then
       return false
     end
@@ -403,33 +411,42 @@ function twenty48:drawBoard(action)
 end
 
 
---scales down input/scores from 2,4,8,16... to 1,2,3,4...
-function twenty48:scaleDownLog2(input)
-  return torch.floor(torch.log1p(input) / torch.log(2))
+local function rotateAction(actionIndex, rotateBy)
+  return ((actionIndex-1+rotateBy)%4)+1
 end
 
 
---expands indexed 4x4 board into scaled and flattened 4x4x12 board
-function twenty48:expandBoard(input)
+--save move to replay memory (including augmentations)
+function twenty48:augmentMemory(prevState, memState, actionIndex, score, isTerminal)
 
-  local oldBoard = self:scaleDownLog2(input:clone())
-  local newBoard = torch.Tensor(4, 4, 12):zero()
+  --actual move
+  prevState_s = expandBoard(prevState)
+  memState_s = expandBoard(memState)
+  self.AI.memIndex = self.AI.memIndex + 1
+  self.AI.memory[self.AI.memIndex] = {prevState_s, memState_s, actionIndex, score, isTerminal}
 
-  for row = 1, 4 do
-    for col = 1, 4 do
-      if oldBoard[row][col] > 0 then
-        if oldBoard[row][col] <= 12 then
-          newBoard[row][col][oldBoard[row][col]] = 1
-        else
-          newBoard[row][col][12] = 1
-        end
-      end
-    end
-  end
+  --rotate 90
+  actionIndex_90 = rotateAction(actionIndex, 1)
+  prevState_90 = expandBoard(rotateCW90(prevState, 1))
+  memState_90 = expandBoard(rotateCW90(memState, 1))
+  self.AI.memIndex = self.AI.memIndex + 1
+  self.AI.memory[self.AI.memIndex] = {prevState_90, memState_90, actionIndex_90, score, isTerminal}
 
-  newBoard = newBoard:view(192)
-  --newBoard = (newBoard:view(192) - .5) / .5
+  --rotate 180
+  actionIndex_180 = rotateAction(actionIndex, 2)
+  prevState_180 = expandBoard( rotateCW90( rotateCW90(prevState, -1), -1))
+  memState_180 = expandBoard( rotateCW90( rotateCW90(memState, -1), -1))
+  self.AI.memIndex = self.AI.memIndex + 1
+  self.AI.memory[self.AI.memIndex] = {prevState_180, memState_180, actionIndex_180, score, isTerminal}
 
-  return newBoard
+  --rotate 270
+  actionIndex_270 = rotateAction(actionIndex, 3)
+  prevState_270 = expandBoard(rotateCW90(prevState, -1))
+  memState_270 = expandBoard(rotateCW90(memState, -1))
+  self.AI.memIndex = self.AI.memIndex + 1
+  self.AI.memory[self.AI.memIndex] = {prevState_270, memState_270, actionIndex_270, score, isTerminal}
+
+  --flip lr
+  --flip ud
 
 end
