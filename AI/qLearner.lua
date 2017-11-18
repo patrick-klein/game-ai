@@ -8,7 +8,7 @@
     qLearn()
     optimizeNet(batchInputs,batchTargets,actionVals)
     selfEvaluate()
-    drawBars(score,divStep,maxScore)
+    plotProgress(score,divStep,maxScore)
     updateConstants()
     process(input)
     save
@@ -232,7 +232,7 @@ function qLearner:train()
           io.write('\tAverage Score\t') io.write(avgScore) io.write('\n')
           io.write('\tAverage Q\t') io.write(avgQ / avgQCount) io.write('\n')
         else
-          self:drawBars(score)
+          self:plotProgress(score)
           --print(self.iteration)
         end
       end
@@ -413,25 +413,8 @@ end
 
 
 --method that prints a neat bar to visualize score
-function qLearner:drawBars(score)
+function qLearner:plotProgress(score)
 
-  --[[
-  maxScore = self.game.maxScore
-  divStep = maxScore / 4
-  div = divStep
-  local numStars = torch.min(torch.Tensor({80, 80 * (score / maxScore)}))
-  for star = 1, numStars do
-    if maxScore * star / 80 >= div then
-      io.write('░')
-      div = div + divStep
-    else
-      io.write('█')
-    end
-  end
-  io.write('\n')
-]]
-
-  ----should rename this function to reflect new structure
   ----add a way to show histogram of results, instead of just average scores?
 
   maxScore = self.game.maxScore

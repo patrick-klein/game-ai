@@ -6,6 +6,7 @@
     Use two separate AI modules for 2-player games
     Implement CUDA
     create method that scrapes out unnecessary data when saving
+    pass class of game instead of instance to AI agents
 ]]
 
 
