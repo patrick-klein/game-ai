@@ -37,67 +37,6 @@ function qLearner:__init(game, config, net)
 
   parent.__init(self, game)
 
-  --[[
-  --assert(net, 'No neural network to initialize AI!')
-  if net==nil then
-    --print('Warning: qLearner initialized without network.  Using default network architecture...')
-    local numHiddenNodes = 1024
-    net = nn.Sequential()
-    net:add(nn.Linear(self.game.numInputs, numHiddenNodes))
-    net:add(nn.ReLU())
-    net:add(nn.Linear(numHiddenNodes, numHiddenNodes))
-    net:add(nn.ReLU())
-    net:add(nn.Linear(numHiddenNodes, self.game.numOutputs))
-    --print(net)
-  end
-
-  self.net = net
-  self.targetNet = self.net:clone()
-
-  --use AI generated moves for training, by default
-  self.training = com
-
-  --flags for display/backups
-  --backup and verbose aren't really implemented well at this point
-  self.profile = false
-  self.backup = false
-  self.verbose = true
-  self.reload = false
-
-  -- training parameters (look up Deep Mind paper for explanations)
-  self.numLoopsToFinish = 1e6
-  self.numLoopsForLinear = 1e5
-  self.iteration = 1
-  self.targetNetworkUpdateDelay = 1e3
-  self.replayStartSize = 1e5
-  self.replaySize = 1e6
-  self.batchSize = 2048
-  self.numTrainingEpochs = 50
-
-  self.loadMemory = false
-  self.saveMemory = false
-
-  -- q-learning rate
-  self.alpha = 1
-
-  -- eps-greedy value
-  self.eps_initial = 1.0
-  self.eps_final = 0.1
-
-  -- future reward discount
-  self.gamma_initial = 0
-  self.gamma_final = 0.50
-
-  self.eps = self.eps_initial
-  self.gamma = self.gamma_initial
-
-  self.learningRate = 0.0001
-
-  self.optimFunc = optim.rmsprop
-  self.optimCriterion = nn.MSECriterion
-  self.optimState = {}
-  ]]
-
   --set (non-config) options
   self.training = com
   self.profile = false
@@ -444,11 +383,6 @@ function qLearner:optimizeNet(batchInputs, batchTargets, actionVals)
 
     --apply optimization method
     self.optimFunc(feval, params, config, self.optimState)
-    --optim.sgd(feval, params, config)
-    --optim.adamax(feval,params,config)
-    --optim.adagrad(feval, params, config, self.optimState)
-    ----optim.rmsprop(feval, params, config, self.optimState)
-    --optim.adam(feval, params, config, self.optimState)
 
   end
 
