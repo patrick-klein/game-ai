@@ -15,7 +15,7 @@ require 'nn'
 
 
 -- create AI_class
-AI = torch.class('AI')
+local AI = torch.class('AI')
 
 
 -- initialization function
