@@ -1,5 +1,5 @@
 --[[
-  This is a learner that will use bagging of weak learners
+  This is a learner that will use bagging of weak q-learners
 
   Class Methods
     __init(net, game)
@@ -19,7 +19,7 @@ require 'nn'
 require 'AI/AI'
 require 'AI/qLearner'
 
--- declare boostLearner class
+-- declare bagLearner class
 local bagLearner, parent = torch.class('bagLearner', 'AI')
 
 
@@ -62,7 +62,7 @@ function bagLearner:train()
     self.trainedLearners = self.trainedLearners + 1
 
     --get a metric of this learners performance, weight accordingly
-    self:learnerEvaluate(t)
+    self:learnerEvaluate(t) ----BUG?? function doesn't expect argument
     print(self.learnerWeights * self.trainedLearners)
     print(self:selfEvaluate())
   end
@@ -173,6 +173,7 @@ function bagLearner:learnerEvaluate()
   self.learnerWeights = self.learnerWeights / self.learnerWeights:sum()
 
 end
+
 
 function bagLearner:save()
   for t = 1, self.trainedLearners do
