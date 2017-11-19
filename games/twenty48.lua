@@ -42,6 +42,7 @@ function twenty48:__init()
   --set scores for rewards
   self.newHighScore = 1
   self.gameOverScore = -1
+  self.invalidScore = 0
 
   self.name = '2048'
 
@@ -352,8 +353,8 @@ function twenty48:comTurn()
       return actionIndex
 
     -- penalize incorrect inputs
-    elseif not self.testmode then
-      self:augmentMemory(self.state, self.state, actionIndex, -1, false)
+    --elseif not self.testmode then
+    --  self:augmentMemory(self.state, self.state, actionIndex, invalidScore, false)
 
     end
   end
@@ -434,8 +435,8 @@ function twenty48:augmentMemory(prevState, memState, actionIndex, score, isTermi
 
   --rotate 180
   actionIndex_180 = rotateAction(actionIndex, 2)
-  prevState_180 = expandBoard( rotateCW90( rotateCW90(prevState, -1), -1))
-  memState_180 = expandBoard( rotateCW90( rotateCW90(memState, -1), -1))
+  prevState_180 = expandBoard( rotateCW90(rotateCW90(prevState,-1),-1) )
+  memState_180 = expandBoard( rotateCW90(rotateCW90(memState,-1),-1) )
   self.AI.memIndex = self.AI.memIndex + 1
   self.AI.memory[self.AI.memIndex] = {prevState_180, memState_180, actionIndex_180, score, isTerminal}
 
