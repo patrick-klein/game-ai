@@ -8,6 +8,8 @@
     create method that scrapes out unnecessary data when saving
     pass class of game instead of instance to AI agents
     use actual high score for 2048 game
+    augment tic tac toe memories
+    update bagLearner to use config
 ]]
 
 
@@ -18,6 +20,7 @@ require 'nn'
 --require classes
 require 'AI/qLearner'
 require 'AI/bagLearner'
+require 'AI/metaQLearner'
 require 'games/twenty48'
 require 'games/ticTacToe'
 
@@ -27,35 +30,32 @@ com = 1
 hum = 2
 
 
---quickly change between new and archived networks
-----should move this into qLearner
+--option to load pretrained network
 if false then
   myNet = torch.load('./saves/myNetBest_2048.dat_archive')
   print(myNet)
-else
-  myNet = nn.Sequential()
-  myNet:add(nn.Linear(16, 1024))
-  myNet:add(nn.ReLU())
-  myNet:add(nn.Linear(1024, 1024))
-  myNet:add(nn.ReLU())
-  myNet:add(nn.Linear(1024, 4))
 end
 
 
 --create game instance
-myGame = twenty48()
---myGame = ticTacToe()
+--myGame = twenty48()
+myGame = ticTacToe()
 
 
 --create instance for AI and assign net,game
 --myAI = qLearner(myGame, myNet)
 --myAI.loadMemory = true
-myAI = bagLearner(myGame)
+--myAI = bagLearner(myGame)
+
+params = {numHiddenNodes={256, 512, 1024},
+          numberOfLayers={1,2,3},
+          numLoopsToFinish={50},
+          }
+
+myAI = metaQLearner(myGame, params)
 
 --train learner
 myAI:train()
-
---should create different output/save folders for each game
 
 --save ai and play game
 myAI:save()

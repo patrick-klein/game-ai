@@ -33,11 +33,24 @@ local qLearner, parent = torch.class('qLearner', 'AI')
 
 
 -- initialization function
-function qLearner:__init(game, net)
+function qLearner:__init(game, config, net)
 
   parent.__init(self, game)
 
-  assert(net, 'No neural network to initialize AI!')
+  --[[
+  --assert(net, 'No neural network to initialize AI!')
+  if net==nil then
+    --print('Warning: qLearner initialized without network.  Using default network architecture...')
+    local numHiddenNodes = 1024
+    net = nn.Sequential()
+    net:add(nn.Linear(self.game.numInputs, numHiddenNodes))
+    net:add(nn.ReLU())
+    net:add(nn.Linear(numHiddenNodes, numHiddenNodes))
+    net:add(nn.ReLU())
+    net:add(nn.Linear(numHiddenNodes, self.game.numOutputs))
+    --print(net)
+  end
+
   self.net = net
   self.targetNet = self.net:clone()
 
@@ -80,7 +93,61 @@ function qLearner:__init(game, net)
 
   self.learningRate = 0.0001
 
+  self.optimFunc = optim.rmsprop
+  self.optimCriterion = nn.MSECriterion
   self.optimState = {}
+  ]]
+
+  --set (non-config) options
+  self.training = com
+  self.profile = false
+  self.backup = false
+  self.verbose = true
+  self.reload = false
+  self.loadMemory = false
+  self.saveMemory = false
+  self.optimState = {}
+  self.iteration = 1
+  self.alpha = 1
+
+  --create empty table if no config argument
+  config = config or {}
+
+  --generate network if no net argument
+  if net==nil then
+    local numberOfLayers = config.numberOfLayers or 2
+    local numHiddenNodes = config.numHiddenNodes or 1024
+    local activationFunc = config.activationFunc or nn.ReLU
+
+    net = nn.Sequential()
+    net:add(nn.Linear(self.game.numInputs, numHiddenNodes))
+    net:add(activationFunc())
+    for layer = 1,numberOfLayers-1 do
+      net:add(nn.Linear(numHiddenNodes, numHiddenNodes))
+      net:add(activationFunc())
+    end
+    net:add(nn.Linear(numHiddenNodes, self.game.numOutputs))
+  end
+
+  --set network
+  self.net = net
+  self.targetNet = self.net:clone()
+
+  --training parameters
+  self.numLoopsToFinish         = config.numLoopsToFinish         or 1000--1e6
+  self.numLoopsForLinear        = config.numLoopsForLinear        or 500--1e5
+  self.targetNetworkUpdateDelay = config.targetNetworkUpdateDelay or 100--1e3
+  self.replayStartSize          = config.replayStartSize          or 2048--1e5
+  self.replaySize               = config.replaySize               or 2048--1e6
+  self.batchSize                = config.batchSize                or 2048
+  self.numTrainingEpochs        = config.numTrainingEpochs        or 5--50
+  self.eps_initial              = config.eps_initial              or 1.0
+  self.eps_final                = config.eps_final                or 0.1
+  self.gamma_initial            = config.gamma_initial            or 0
+  self.gamma_final              = config.gamma_final              or 0.50
+  self.learningRate             = config.learningRate             or 0.0001
+  self.optimFunc                = config.optimFunc                or optim.rmsprop
+  self.optimCriterion           = config.optimCriterion           or nn.MSECriterion
 
 end
 
@@ -352,8 +419,9 @@ function qLearner:optimizeNet(batchInputs, batchTargets, actionVals)
 
   --set criterion for loss function
   ----Test criterion other than MSE.  "Error" is not Gaussian, breaks assumption
-  local criterion = nn.MSECriterion()
+  ----local criterion = nn.MSECriterion()
   --local criterion = nn.AbsCriterion()
+  local criterion = self.optimCriterion()
 
   for epoch = 1, self.numTrainingEpochs do
 
@@ -375,12 +443,12 @@ function qLearner:optimizeNet(batchInputs, batchTargets, actionVals)
     end
 
     --apply optimization method
+    self.optimFunc(feval, params, config, self.optimState)
     --optim.sgd(feval, params, config)
     --optim.adamax(feval,params,config)
     --optim.adagrad(feval, params, config, self.optimState)
-    optim.rmsprop(feval, params, config, self.optimState)
+    ----optim.rmsprop(feval, params, config, self.optimState)
     --optim.adam(feval, params, config, self.optimState)
-    --print(self.optimState)
 
   end
 
@@ -436,6 +504,10 @@ end
 
 -- update learning constants once every training iteration
 function qLearner:updateConstants()
+
+  if self.numLoopsToFinish<self.numLoopsForLinear then
+    self.numLoopsForLinear = self.numLoopsToFinish
+  end
 
   if self.iteration < self.numLoopsForLinear then
 
