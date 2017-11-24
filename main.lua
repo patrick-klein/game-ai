@@ -42,16 +42,15 @@ end
 myGame = ticTacToe()
 
 
---create instance for AI and assign net,game
---myAI = qLearner(myGame, myNet)
---myAI.loadMemory = true
---myAI = bagLearner(myGame)
-
+--create params/config for AI
 params = {numHiddenNodes={256, 512, 1024},
           numberOfLayers={1,2,3},
-          numLoopsToFinish={50},
+          numLoopsToFinish={5},
           }
 
+--create instance of AI
+--myAI = qLearner(myGame, myNet)
+--myAI = bagLearner(myGame)
 myAI = metaQLearner(myGame, params)
 
 --train learner

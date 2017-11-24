@@ -5,6 +5,7 @@
   --keys in params must return a table of values, e.g.
   --    params = {numberOfLayers={2,3,4},
   --              numHiddenNodes={256,512,1024},
+  --              ...,
   --              }
 
   -- more param options?
@@ -58,27 +59,73 @@ end
 --method for finding optimal hyperparameters
 function metaQLearner:train()
 
-  --create first config
-  thisConfig = {}
-  for param_key, param_table in pairs(self.params) do
-    thisConfig[param_key] = param_table[1]
+  --initialize gridCombo to {1,1,1,...} and store number of vals per param
+  numParams = table.getn(self.params)
+  gridCombo = {}
+  numValsForParams = {}
+  for param_key, param_vals in pairs(self.params) do
+    gridCombo[param_key] = 1
+    numValsForParams[param_key] = table.getn(self.params[param_key])
+    last_param = param_key
   end
 
-  --initialize qLearner with config
-  thisLearner = qLearner(self.game.new(), thisConfig)
-  thisLearner:train()
-  thisScore = self:learnerEvaluate(thisLearner)
+  --loop through all combos
+  gridIndex = 0
+  while true do
 
-  --save learner/score/config if best
-  if thisScore>self.bestScore then
-    --can't just clone learner, so technically creating new one with same config & net.
-    --this means it doesn't have the same replay memory, optimstate, etc.
-    thisNet = thisLearner.net:clone()
-    self.bestLearner = thisLearner.new(self.game.new(), thisConfig, thisNet)
-    self.bestConfig = thisConfig
-    self.bestScore = thisScore
+    --keep track of index
+    gridIndex = gridIndex+1
+
+    --set thisConfig from gridCombo
+    thisConfig = {}
+    for param_key, param_vals in pairs(self.params) do
+      thisConfig[param_key] = param_vals[gridCombo[param_key]]
+    end
+    print('Iteration... '..gridIndex)
+    --print(thisConfig)
+
+    --initialize qLearner with config (and set optional params)
+    thisLearner = qLearner(self.game.new(), thisConfig)
+    thisLearner.saveMemory = index==1 --save memory on first iteration, otherwise load memory
+    thisLearner.loadMemory = index~=1
+    thisLearner.verbose = false
+    thisLearner:train()
+    thisScore = self:learnerEvaluate(thisLearner)
+
+    --save learner/score/config if best
+    if thisScore>self.bestScore then
+      --can't just clone learner, so technically creating new one with same config & net.
+      --this means it doesn't have the same replay memory, optimstate, etc.
+      thisNet = thisLearner.net:clone()
+      self.bestLearner = thisLearner.new(self.game.new(), thisConfig, thisNet)
+      self.bestConfig = thisConfig
+      self.bestScore = thisScore
+    end
+
+    --update gridCombo for next iteration, and check for main break condition
+    for param_key, param_index in pairs(gridCombo) do
+      --update index for this parameter if not at end of values
+      if gridCombo[param_key]<numValsForParams[param_key] then
+        gridCombo[param_key] = param_index + 1
+        break
+      --if last param and can't incrememnt, set break condition
+      elseif param_key==last_param then
+        breakCondition = true
+      --reset index so next param can be incrememnted
+      else
+        gridCombo[param_key] = 1
+      end
+    end
+
+    --check for breakCondition to exit while-do loop
+    if breakCondition then
+      break
+    end
+
   end
 
+  --print best config
+  print('Optimal hyperparameters:')
   print(self.bestConfig)
 
 end

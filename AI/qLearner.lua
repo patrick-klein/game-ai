@@ -3,7 +3,7 @@
   This is a learner that uses a DQN
 
   Class Methods
-    __init(net, game)
+    __init(game, config, net)
     train()
     qLearn()
     optimizeNet(batchInputs,batchTargets,actionVals)
@@ -57,7 +57,6 @@ function qLearner:__init(game, config, net)
     local numberOfLayers = config.numberOfLayers or 2
     local numHiddenNodes = config.numHiddenNodes or 1024
     local activationFunc = config.activationFunc or nn.ReLU
-
     net = nn.Sequential()
     net:add(nn.Linear(self.game.numInputs, numHiddenNodes))
     net:add(activationFunc())
